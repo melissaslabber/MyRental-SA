@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { supabase, supabaseConfigured } from './lib/supabase'
+import { supabase, supabaseConfigured } from './supabase'
 import {
   AlertTriangle, Bell, BookOpen, Building2, CalendarDays, ChevronRight,
   ClipboardCheck, FilePenLine, Hammer, Home, KeyRound, LayoutGrid,
