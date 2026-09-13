@@ -15,7 +15,17 @@ npm run dev
 npm run build
 ```
 
-The current version is a working front-end prototype with demo data. Supabase authentication, permanent data storage, secure tenant links, document generation and subscriptions will be connected in the next development phases.
+The app includes Supabase landlord authentication, persistent sessions, secure first-property onboarding and a demo fallback when environment variables have not yet been configured.
+
+## Connect Supabase
+
+1. Create a new Supabase project.
+2. Open the SQL Editor and run `supabase/schema.sql` once.
+3. Copy `.env.example` to `.env.local` for local development.
+4. Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` to Vercel Environment Variables.
+5. Redeploy the latest Vercel deployment.
+
+Never add the Supabase service-role key to this front-end project.
 
 ## Deploy to Vercel
 
