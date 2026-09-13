@@ -159,7 +159,7 @@ function Dashboard({ user, profile, onSignOut, demo=false }) {
       {page === 'Maintenance' && <LiveMaintenance notify={notify} ownerId={profile?.id} properties={portfolio}/>} 
       {page === 'More' && <More notify={notify} setPage={setPage}/>} 
       {page === 'Applications' && <ApplicationModule properties={portfolio} notify={notify}/>} 
-      {page === 'Inspections' && <InspectionModule properties={portfolio} notify={notify}/>} 
+      {page === 'Inspections' && <InspectionModule properties={portfolio} ownerId={profile?.id} notify={notify}/>} 
       {page === 'Documents' && <DocumentsModule properties={portfolio} notify={notify}/>} 
       {page === 'Renewals' && <RenewalsModule properties={portfolio} notify={notify}/>} 
       {page === 'Finances' && <RentalModule name={page} ownerId={profile?.id} properties={portfolio} notify={notify}/>} 
