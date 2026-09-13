@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { supabase, supabaseConfigured } from './lib/supabase'
 import {
   AlertTriangle, Bell, BookOpen, Building2, CalendarDays, ChevronRight,
   ClipboardCheck, FilePenLine, Hammer, Home, KeyRound, LayoutGrid,
@@ -30,6 +31,68 @@ function Brand() {
 }
 
 function App() {
+  const [session, setSession] = useState(undefined)
+  const [profile, setProfile] = useState(null)
+  const [hasProperty, setHasProperty] = useState(false)
+  const [loading, setLoading] = useState(supabaseConfigured)
+
+  useEffect(() => {
+    if (!supabaseConfigured) { setSession(null); return }
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session)
+      if (!data.session) setLoading(false)
+    })
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, next) => {
+      setSession(next)
+      if (!next) { setProfile(null); setHasProperty(false); setLoading(false) }
+    })
+    return () => listener.subscription.unsubscribe()
+  }, [])
+
+  useEffect(() => {
+    if (!session?.user) return
+    setLoading(true)
+    Promise.all([
+      supabase.from('profiles').select('*').eq('id', session.user.id).maybeSingle(),
+      supabase.from('properties').select('id').eq('owner_id', session.user.id).limit(1)
+    ]).then(([profileResult, propertyResult]) => {
+      setProfile(profileResult.data)
+      setHasProperty(Boolean(propertyResult.data?.length))
+      setLoading(false)
+    })
+  }, [session])
+
+  if (!supabaseConfigured) return <Dashboard demo />
+  if (loading || session === undefined) return <LoadingScreen />
+  if (!session) return <AuthScreen />
+  if (!profile?.onboarding_complete || !hasProperty) return <Onboarding user={session.user} profile={profile} onComplete={(nextProfile)=>{setProfile(nextProfile);setHasProperty(true)}} />
+  return <Dashboard user={session.user} profile={profile} onSignOut={()=>supabase.auth.signOut()} />
+}
+
+function LoadingScreen() { return <div className="auth-shell"><div className="auth-card loading-card"><Brand/><div className="spinner"/><p>Preparing your rental dashboard…</p></div></div> }
+
+function AuthScreen() {
+  const [mode,setMode]=useState('login'); const [form,setForm]=useState({name:'',email:'',password:''}); const [busy,setBusy]=useState(false); const [message,setMessage]=useState('')
+  const submit=async(e)=>{e.preventDefault();setBusy(true);setMessage('');
+    const result=mode==='login' ? await supabase.auth.signInWithPassword({email:form.email,password:form.password}) : await supabase.auth.signUp({email:form.email,password:form.password,options:{data:{full_name:form.name}}})
+    if(result.error) setMessage(result.error.message); else if(mode==='signup'&&!result.data.session) setMessage('Check your email to confirm your account, then return to sign in.')
+    setBusy(false)
+  }
+  return <div className="auth-shell"><section className="auth-brand-panel"><Brand/><div><span className="eyebrow">PRIVATE LANDLORDS · SOUTH AFRICA</span><h1>Rent out with confidence.</h1><p>Every property, deadline and document—guided from advertising to deposit reconciliation.</p></div><small>Guidance and organisation for responsible landlords.</small></section><section className="auth-form-panel"><div className="auth-card"><span className="eyebrow">WELCOME TO MYRENTAL SA</span><h2>{mode==='login'?'Sign in to your account':'Create your landlord account'}</h2><p>{mode==='login'?'Continue managing your rentals.':'Start with your first property in a few guided steps.'}</p><form onSubmit={submit}>{mode==='signup'&&<label>Full name<input required value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="Your full name"/></label>}<label>Email address<input required type="email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})} placeholder="name@example.com"/></label><label>Password<input required minLength="8" type="password" value={form.password} onChange={e=>setForm({...form,password:e.target.value})} placeholder="At least 8 characters"/></label>{message&&<div className="auth-message">{message}</div>}<button className="auth-submit" disabled={busy}>{busy?'Please wait…':mode==='login'?'Sign in':'Create account'}</button></form><button className="auth-switch" onClick={()=>{setMode(mode==='login'?'signup':'login');setMessage('')}}>{mode==='login'?'New to MyRental SA? Create an account':'Already registered? Sign in'}</button></div></section></div>
+}
+
+function Onboarding({user,profile,onComplete}) {
+  const [step,setStep]=useState(1); const [busy,setBusy]=useState(false); const [error,setError]=useState(''); const [data,setData]=useState({name:profile?.full_name||user.user_metadata?.full_name||'',phone:'',propertyName:'',address:'',suburb:'',province:'Western Cape',status:'occupied'})
+  const finish=async()=>{setBusy(true);setError(''); const profileData={id:user.id,full_name:data.name,phone:data.phone,onboarding_complete:true};
+    const {data:savedProfile,error:pError}=await supabase.from('profiles').upsert(profileData).select().single();
+    if(pError){setError(pError.message);setBusy(false);return}
+    const {error:propertyError}=await supabase.from('properties').insert({owner_id:user.id,name:data.propertyName,address:data.address,suburb:data.suburb,province:data.province,status:data.status});
+    if(propertyError){setError(propertyError.message);setBusy(false);return} onComplete(savedProfile)
+  }
+  return <div className="onboarding-shell"><header className="onboarding-head"><Brand/><button onClick={()=>supabase.auth.signOut()}>Sign out</button></header><main className="onboarding-main"><div className="progress"><span style={{width:`${step*33.33}%`}}/></div><span className="eyebrow">STEP {step} OF 3</span>{step===1&&<div className="onboarding-step"><h1>Welcome to MyRental SA</h1><p>Let’s personalise your account before adding your first rental property.</p><label>Full name<input value={data.name} onChange={e=>setData({...data,name:e.target.value})}/></label><label>Mobile number<input type="tel" value={data.phone} onChange={e=>setData({...data,phone:e.target.value})} placeholder="e.g. 082 123 4567"/></label></div>}{step===2&&<div className="onboarding-step"><h1>Add your first property</h1><p>This becomes the property’s secure digital file.</p><label>Property name<input value={data.propertyName} onChange={e=>setData({...data,propertyName:e.target.value})} placeholder="e.g. 14 Protea Lane"/></label><label>Street address<input value={data.address} onChange={e=>setData({...data,address:e.target.value})}/></label><div className="field-row"><label>Suburb / town<input value={data.suburb} onChange={e=>setData({...data,suburb:e.target.value})}/></label><label>Province<select value={data.province} onChange={e=>setData({...data,province:e.target.value})}>{['Western Cape','Eastern Cape','Northern Cape','Free State','Gauteng','KwaZulu-Natal','Limpopo','Mpumalanga','North West'].map(x=><option key={x}>{x}</option>)}</select></label></div></div>}{step===3&&<div className="onboarding-step"><h1>What is its current status?</h1><p>We’ll create the correct starting checklist for you.</p><div className="choice-grid">{[['occupied','It has a tenant','Add the current lease and tenant'],['vacant','It is vacant','Prepare and advertise it'],['new','I just bought it','Set up the rental correctly']].map(([value,title,text])=><button className={data.status===value?'selected':''} onClick={()=>setData({...data,status:value})} key={value}><Building2/><b>{title}</b><small>{text}</small></button>)}</div></div>}{error&&<div className="auth-message">{error}</div>}<div className="onboarding-actions">{step>1&&<button className="secondary" onClick={()=>setStep(step-1)}>Back</button>}<button className="primary" disabled={busy||!data.name||(step===2&&(!data.propertyName||!data.address||!data.suburb))} onClick={()=>step<3?setStep(step+1):finish()}>{busy?'Saving…':step<3?'Continue':'Open my dashboard'} <ChevronRight size={17}/></button></div></main></div>
+}
+
+function Dashboard({ profile, onSignOut, demo=false }) {
   const [page, setPage] = useState('Today')
   const [quick, setQuick] = useState(false)
   const [toast, setToast] = useState('')
@@ -45,11 +108,11 @@ function App() {
       <Brand />
       <nav>{nav.map(([name, Icon]) => <button className={page===name?'active':''} onClick={()=>setPage(name)} key={name}><Icon size={19}/><span>{name}</span></button>)}</nav>
       <div className="legal-mini"><ShieldCheck size={18}/><p><b>Guidance you can trust</b><br/>Important legal matters are clearly flagged for professional review.</p></div>
-      <button className="profile"><span>MS</span><div><b>Melissa</b><small>Landlord account</small></div></button>
+      <button className="profile" onClick={onSignOut}><span>{(profile?.full_name||'Melissa').split(' ').map(x=>x[0]).slice(0,2).join('').toUpperCase()}</span><div><b>{profile?.full_name?.split(' ')[0]||'Melissa'}</b><small>{demo?'Demo landlord':'Sign out'}</small></div></button>
     </aside>
 
     <main>
-      <header><div className="mobile-brand"><Brand/></div><div><p>{today}</p><h1>{page === 'Today' ? 'Good morning, Melissa' : page}</h1></div><button className="icon-btn" aria-label="Notifications"><Bell size={21}/><i/></button></header>
+      <header><div className="mobile-brand"><Brand/></div><div><p>{today}</p><h1>{page === 'Today' ? `Good morning, ${profile?.full_name?.split(' ')[0]||'Melissa'}` : page}</h1></div><button className="icon-btn" aria-label="Notifications"><Bell size={21}/><i/></button></header>
       {page === 'Today' && <Today setPage={setPage} setQuick={setQuick}/>} 
       {page === 'Properties' && <Properties notify={notify}/>} 
       {page === 'Rent' && <Rent notify={notify}/>} 
