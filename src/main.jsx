@@ -9,6 +9,10 @@ import './legal.css'
 import './support.css'
 import './deposit.css'
 import './applications.css'
+import './inspections.css'
+import './documents.css'
+import './renewals.css'
+import './learn.css'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode><App /></React.StrictMode>

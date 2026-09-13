@@ -1,9 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase, supabaseConfigured } from './supabase'
-import { LearnModule, MaintenanceModule as LiveMaintenance, RentalModule } from './Modules'
+import { MaintenanceModule as LiveMaintenance, RentalModule } from './Modules'
 import { LEGAL_VERSION, LegalAcceptance, LegalPage } from './Legal'
 import { ProfessionalHelp, SettingsModule } from './Support'
 import { ApplicationModule } from './Applications'
+import { InspectionModule } from './Inspections'
+import { DocumentsModule } from './Documents'
+import { RenewalsModule } from './Renewals'
+import { LearnModule } from './Learn'
 import {
   AlertTriangle, Bell, BookOpen, Building2, CalendarDays, ChevronRight,
   ClipboardCheck, FilePenLine, Hammer, Home, KeyRound, LayoutGrid,
@@ -155,7 +159,10 @@ function Dashboard({ user, profile, onSignOut, demo=false }) {
       {page === 'Maintenance' && <LiveMaintenance notify={notify} ownerId={profile?.id} properties={portfolio}/>} 
       {page === 'More' && <More notify={notify} setPage={setPage}/>} 
       {page === 'Applications' && <ApplicationModule properties={portfolio} notify={notify}/>} 
-      {['Inspections','Documents','Finances','Renewals'].includes(page) && <RentalModule name={page} ownerId={profile?.id} properties={portfolio} notify={notify}/>} 
+      {page === 'Inspections' && <InspectionModule properties={portfolio} notify={notify}/>} 
+      {page === 'Documents' && <DocumentsModule properties={portfolio} notify={notify}/>} 
+      {page === 'Renewals' && <RenewalsModule properties={portfolio} notify={notify}/>} 
+      {page === 'Finances' && <RentalModule name={page} ownerId={profile?.id} properties={portfolio} notify={notify}/>} 
       {page === 'Learn' && <LearnModule/>}
       {page === 'Legal' && <LegalPage/>}
       {page === 'Professional help' && <ProfessionalHelp/>}
