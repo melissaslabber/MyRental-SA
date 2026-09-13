@@ -88,23 +88,27 @@ function Dashboard({ profile, onSignOut, demo=false }) {
   const [quick, setQuick] = useState(false)
   const [toast, setToast] = useState('')
   const [portfolio, setPortfolio] = useState([])
+  const [refreshKey, setRefreshKey] = useState(0)
   const today = useMemo(() => new Intl.DateTimeFormat('en-ZA', { weekday:'long', day:'numeric', month:'long' }).format(new Date()), [])
   const notify = (message) => { setToast(message); setTimeout(() => setToast(''), 2600) }
 
   useEffect(() => {
     if (!profile?.id || !supabase) return
-    supabase.from('properties').select('*').eq('owner_id', profile.id).order('created_at', { ascending:false }).then(({data}) => {
-      setPortfolio((data||[]).map((p,index)=>({
+    supabase.from('properties').select('*, leases(*)').eq('owner_id', profile.id).order('created_at', { ascending:false }).then(({data}) => {
+      setPortfolio((data||[]).map((p,index)=>{
+        const activeLease=(p.leases||[]).find(l=>l.status==='active')||(p.leases||[])[0]
+        return ({
         ...p,
+        activeLease,
         area:p.suburb,
-        tenant:p.status==='occupied'?'Tenant details not added':'No current tenant',
-        rent:p.monthly_rent?`R${Number(p.monthly_rent).toLocaleString('en-ZA')}`:'Not set',
+        tenant:activeLease?.tenant_name||(p.status==='occupied'?'Tenant details not added':'No current tenant'),
+        rent:activeLease?.monthly_rent?`R${Number(activeLease.monthly_rent).toLocaleString('en-ZA')}`:p.monthly_rent?`R${Number(p.monthly_rent).toLocaleString('en-ZA')}`:'Not set',
         status:p.status==='occupied'?'Occupied':p.status==='vacant'?'Vacant':'New property',
-        lease:'Not set',
+        lease:activeLease?.end_date?new Intl.DateTimeFormat('en-ZA',{day:'numeric',month:'short',year:'numeric'}).format(new Date(`${activeLease.end_date}T12:00:00`)):'Not set',
         tone:index%2?'sand':'sage'
-      })))
+      })}))
     })
-  }, [profile?.id])
+  }, [profile?.id,refreshKey])
 
   const nav = [
     ['Today', Home], ['Properties', Building2], ['Rent', KeyRound], ['Maintenance', Hammer], ['More', Menu]
@@ -121,7 +125,7 @@ function Dashboard({ profile, onSignOut, demo=false }) {
     <main>
       <header><div className="mobile-brand"><Brand/></div><div><p>{today}</p><h1>{page === 'Today' ? `Good morning, ${profile?.full_name?.split(' ')[0]||'Melissa'}` : page}</h1></div><button className="icon-btn" aria-label="Notifications"><Bell size={21}/><i/></button></header>
       {page === 'Today' && <Today setPage={setPage} setQuick={setQuick} properties={portfolio}/>} 
-      {page === 'Properties' && <Properties notify={notify} properties={portfolio}/>} 
+      {page === 'Properties' && <Properties notify={notify} properties={portfolio} ownerId={profile?.id} onRefresh={()=>setRefreshKey(x=>x+1)}/>} 
       {page === 'Rent' && <Rent notify={notify}/>} 
       {page === 'Maintenance' && <Maintenance notify={notify}/>} 
       {page === 'More' && <More notify={notify}/>} 
@@ -148,7 +152,19 @@ function Today({setPage,setQuick,properties}) {
   </div>
 }
 
-function Properties({notify,properties}) { return <section><div className="page-intro"><div><span className="eyebrow">{properties.length} {properties.length===1?'PROPERTY':'PROPERTIES'}</span><h2>Your rental portfolio</h2><p>Each property keeps its tenants, documents, money and history together.</p></div><button className="primary" onClick={()=>notify('Add-property form will open here')}><Plus size={18}/> Add property</button></div><div className="property-grid">{properties.map(p=><article className="wide-card" key={p.id}><div className={`property-image ${p.tone}`}><Building2 size={42}/></div><div className="wide-main"><span className="status">{p.status}</span><small>{p.area.toUpperCase()}</small><h3>{p.name}</h3><p>{p.tenant}</p><div className="facts"><span><small>MONTHLY RENT</small><b>{p.rent}</b></span><span><small>LEASE ENDS</small><b>{p.lease}</b></span></div></div><button className="arrow"><ChevronRight/></button></article>)}</div></section> }
+function Properties({notify,properties,ownerId,onRefresh}) {
+  const [editing,setEditing]=useState(null)
+  return <section><div className="page-intro"><div><span className="eyebrow">{properties.length} {properties.length===1?'PROPERTY':'PROPERTIES'}</span><h2>Your rental portfolio</h2><p>Each property keeps its tenants, documents, money and history together.</p></div><button className="primary" onClick={()=>notify('Adding additional properties comes next')}><Plus size={18}/> Add property</button></div><div className="property-grid">{properties.map(p=><article className="wide-card property-open" key={p.id} onClick={()=>setEditing(p)}><div className={`property-image ${p.tone}`}><Building2 size={42}/></div><div className="wide-main"><span className="status">{p.status}</span><small>{p.area.toUpperCase()}</small><h3>{p.name}</h3><p>{p.tenant}</p><div className="facts"><span><small>MONTHLY RENT</small><b>{p.rent}</b></span><span><small>LEASE ENDS</small><b>{p.lease}</b></span></div></div><button className="arrow" aria-label={`Open ${p.name}`}><ChevronRight/></button></article>)}</div>{editing&&<LeaseEditor property={editing} ownerId={ownerId} onClose={()=>setEditing(null)} onSaved={()=>{setEditing(null);onRefresh();notify('Lease details saved')}}/>}</section>
+}
+
+function LeaseEditor({property,ownerId,onClose,onSaved}) {
+  const current=property.activeLease||{}
+  const [form,setForm]=useState({tenant_name:current.tenant_name||'',tenant_email:current.tenant_email||'',tenant_phone:current.tenant_phone||'',start_date:current.start_date||'',end_date:current.end_date||'',monthly_rent:current.monthly_rent||'',deposit_amount:current.deposit_amount||'',payment_day:current.payment_day||1,escalation_percent:current.escalation_percent||'',lease_type:current.lease_type||'fixed',cpa_status:current.cpa_status||'review_required',electricity_payer:current.electricity_payer||'tenant',water_payer:current.water_payer||'tenant',pets_allowed:Boolean(current.pets_allowed),smoking_allowed:Boolean(current.smoking_allowed),subletting_allowed:Boolean(current.subletting_allowed),special_conditions:current.special_conditions||''})
+  const [busy,setBusy]=useState(false);const [error,setError]=useState('')
+  const set=(key,value)=>setForm({...form,[key]:value})
+  const save=async(e)=>{e.preventDefault();setBusy(true);setError('');const payload={...form,property_id:property.id,owner_id:ownerId,status:'active',monthly_rent:form.monthly_rent?Number(form.monthly_rent):null,deposit_amount:form.deposit_amount?Number(form.deposit_amount):null,escalation_percent:form.escalation_percent?Number(form.escalation_percent):null,payment_day:Number(form.payment_day),updated_at:new Date().toISOString()};const query=current.id?supabase.from('leases').update(payload).eq('id',current.id):supabase.from('leases').insert(payload);const {error:saveError}=await query;if(saveError){setError(saveError.message);setBusy(false);return}await supabase.from('properties').update({status:'occupied',monthly_rent:payload.monthly_rent,deposit_amount:payload.deposit_amount,updated_at:new Date().toISOString()}).eq('id',property.id);onSaved()}
+  return <div className="editor-backdrop" onClick={onClose}><form className="lease-editor" onSubmit={save} onClick={e=>e.stopPropagation()}><div className="editor-head"><div><span className="eyebrow">PROPERTY RENTAL FILE</span><h2>{property.name}</h2><p>{property.address}, {property.suburb}</p></div><button type="button" onClick={onClose}><X/></button></div><section className="editor-section"><h3>Tenant details</h3><div className="form-grid"><label>Tenant’s full name<input required value={form.tenant_name} onChange={e=>set('tenant_name',e.target.value)}/></label><label>Email address<input type="email" value={form.tenant_email} onChange={e=>set('tenant_email',e.target.value)}/></label><label>Mobile number<input type="tel" value={form.tenant_phone} onChange={e=>set('tenant_phone',e.target.value)}/></label></div></section><section className="editor-section"><h3>Lease term and money</h3><div className="form-grid"><label>Start date<input required type="date" value={form.start_date} onChange={e=>set('start_date',e.target.value)}/></label><label>End date<input required type="date" value={form.end_date} onChange={e=>set('end_date',e.target.value)}/></label><label>Monthly rent (R)<input required min="0" step="0.01" type="number" value={form.monthly_rent} onChange={e=>set('monthly_rent',e.target.value)}/></label><label>Deposit held (R)<input min="0" step="0.01" type="number" value={form.deposit_amount} onChange={e=>set('deposit_amount',e.target.value)}/></label><label>Rent payment day<input min="1" max="31" type="number" value={form.payment_day} onChange={e=>set('payment_day',e.target.value)}/></label><label>Annual escalation (%)<input min="0" max="100" step="0.1" type="number" value={form.escalation_percent} onChange={e=>set('escalation_percent',e.target.value)}/></label><label>Lease type<select value={form.lease_type} onChange={e=>set('lease_type',e.target.value)}><option value="fixed">Fixed term</option><option value="month_to_month">Month to month</option></select></label><label>CPA assessment<select value={form.cpa_status} onChange={e=>set('cpa_status',e.target.value)}><option value="review_required">Needs guided assessment</option><option value="likely_applies">CPA likely applies</option><option value="likely_not_applies">CPA likely does not apply</option><option value="attorney_confirmed">Confirmed by attorney</option></select></label></div></section><section className="editor-section"><h3>Charges and permissions</h3><div className="form-grid"><label>Electricity paid by<select value={form.electricity_payer} onChange={e=>set('electricity_payer',e.target.value)}><option value="tenant">Tenant</option><option value="landlord">Landlord</option><option value="included">Included in rent</option></select></label><label>Water paid by<select value={form.water_payer} onChange={e=>set('water_payer',e.target.value)}><option value="tenant">Tenant</option><option value="landlord">Landlord</option><option value="included">Included in rent</option></select></label></div><div className="toggle-row">{[['pets_allowed','Pets allowed'],['smoking_allowed','Smoking allowed'],['subletting_allowed','Subletting allowed']].map(([key,label])=><label key={key}><input type="checkbox" checked={form[key]} onChange={e=>set(key,e.target.checked)}/><span>{label}</span></label>)}</div><label>Special conditions<textarea rows="4" value={form.special_conditions} onChange={e=>set('special_conditions',e.target.value)} placeholder="Record agreed special conditions or notes…"/></label></section>{error&&<div className="auth-message">{error}</div>}<div className="editor-actions"><button type="button" className="secondary" onClick={onClose}>Cancel</button><button className="primary" disabled={busy}>{busy?'Saving…':'Save lease terms'}</button></div></form></div>
+}
 
 function Rent({notify}) { return <section><div className="page-intro"><div><span className="eyebrow">GUIDED RENTAL JOURNEY</span><h2>Rent out with confidence</h2><p>Follow the correct steps from preparing your property to signing the lease.</p></div></div><div className="flow-grid">{flows.map(({icon:Icon,title,text},i)=><button className="flow-card" key={title} onClick={()=>notify(`${title} selected`)}><span className="step">{String(i+1).padStart(2,'0')}</span><Icon/><h3>{title}</h3><p>{text}</p><span className="open">Open guide <ChevronRight size={16}/></span></button>)}</div></section> }
 
