@@ -74,7 +74,7 @@ function LoadingScreen() { return <div className="auth-shell"><div className="au
 function AuthScreen() {
   const [mode,setMode]=useState('login'); const [form,setForm]=useState({name:'',email:'',password:''}); const [busy,setBusy]=useState(false); const [message,setMessage]=useState('')
   const submit=async(e)=>{e.preventDefault();setBusy(true);setMessage('');
-    const result=mode==='login' ? await supabase.auth.signInWithPassword({email:form.email,password:form.password}) : await supabase.auth.signUp({email:form.email,password:form.password,options:{data:{full_name:form.name}}})
+    const result=mode==='login' ? await supabase.auth.signInWithPassword({email:form.email,password:form.password}) : await supabase.auth.signUp({email:form.email,password:form.password,options:{data:{full_name:form.name},emailRedirectTo:window.location.origin}})
     if(result.error) setMessage(result.error.message); else if(mode==='signup'&&!result.data.session) setMessage('Check your email to confirm your account, then return to sign in.')
     setBusy(false)
   }
