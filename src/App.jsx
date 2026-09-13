@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase, supabaseConfigured } from './supabase'
 import { LearnModule, MaintenanceModule as LiveMaintenance, RentalModule } from './Modules'
+import { LEGAL_VERSION, LegalAcceptance, LegalPage } from './Legal'
 import {
   AlertTriangle, Bell, BookOpen, Building2, CalendarDays, ChevronRight,
   ClipboardCheck, FilePenLine, Hammer, Home, KeyRound, LayoutGrid,
@@ -26,6 +27,7 @@ function App() {
   const [session, setSession] = useState(undefined)
   const [profile, setProfile] = useState(null)
   const [hasProperty, setHasProperty] = useState(false)
+  const [legalAccepted, setLegalAccepted] = useState(false)
   const [loading, setLoading] = useState(supabaseConfigured)
 
   useEffect(() => {
@@ -36,7 +38,7 @@ function App() {
     })
     const { data: listener } = supabase.auth.onAuthStateChange((_event, next) => {
       setSession(next)
-      if (!next) { setProfile(null); setHasProperty(false); setLoading(false) }
+      if (!next) { setProfile(null); setHasProperty(false); setLegalAccepted(false); setLoading(false) }
     })
     return () => listener.subscription.unsubscribe()
   }, [])
@@ -46,10 +48,12 @@ function App() {
     setLoading(true)
     Promise.all([
       supabase.from('profiles').select('*').eq('id', session.user.id).maybeSingle(),
-      supabase.from('properties').select('id').eq('owner_id', session.user.id).limit(1)
-    ]).then(([profileResult, propertyResult]) => {
+      supabase.from('properties').select('id').eq('owner_id', session.user.id).limit(1),
+      supabase.from('legal_acceptances').select('id').eq('user_id',session.user.id).eq('document_version',LEGAL_VERSION).maybeSingle()
+    ]).then(([profileResult, propertyResult,legalResult]) => {
       setProfile(profileResult.data)
       setHasProperty(Boolean(propertyResult.data?.length))
+      setLegalAccepted(Boolean(legalResult.data))
       setLoading(false)
     })
   }, [session])
@@ -57,6 +61,7 @@ function App() {
   if (!supabaseConfigured) return <Dashboard demo />
   if (loading || session === undefined) return <LoadingScreen />
   if (!session) return <AuthScreen />
+  if (!legalAccepted) return <LegalAcceptance user={session.user} onAccepted={()=>setLegalAccepted(true)}/>
   if (!profile?.onboarding_complete || !hasProperty) return <Onboarding user={session.user} profile={profile} onComplete={(nextProfile)=>{setProfile(nextProfile);setHasProperty(true)}} />
   return <Dashboard user={session.user} profile={profile} onSignOut={()=>supabase.auth.signOut()} />
 }
@@ -148,6 +153,7 @@ function Dashboard({ profile, onSignOut, demo=false }) {
       {page === 'More' && <More notify={notify} setPage={setPage}/>} 
       {['Applications','Inspections','Documents','Finances','Renewals'].includes(page) && <RentalModule name={page} ownerId={profile?.id} properties={portfolio} notify={notify}/>} 
       {page === 'Learn' && <LearnModule/>}
+      {page === 'Legal' && <LegalPage/>}
     </main>
 
     <nav className="bottom-nav">{nav.map(([name, Icon]) => <button className={page===name?'active':''} onClick={()=>setPage(name)} key={name}><Icon size={20}/><span>{name}</span></button>)}</nav>
@@ -207,6 +213,6 @@ function Rent({notify}) { return <section><div className="page-intro"><div><span
 
 function Maintenance({notify}) { return <section><div className="page-intro"><div><span className="eyebrow">MAINTENANCE</span><h2>Issues and repairs</h2><p>Keep quotes, responsibility, follow-ups and proof in one timeline.</p></div><button className="primary" onClick={()=>notify('Maintenance form will open here')}><Plus size={18}/> Log issue</button></div><div className="empty-card"><ClipboardCheck/><h3>No open maintenance issues</h3><p>New tenant reports and issues you log will appear here.</p><button onClick={()=>notify('Secure link copied')}>Create tenant reporting link</button></div></section> }
 
-function More({notify,setPage}) { const items=[[UserRound,'Applications','Review applicants and documents'],[ClipboardCheck,'Inspections','Ingoing, interim and outgoing'],[FilePenLine,'Documents','Leases, addendums and notices'],[CalendarDays,'Renewals','Renewals and term changes'],[WalletCards,'Finances','Rent, deposits and reconciliation'],[BookOpen,'Learn','Plain-language landlord guidance'],[ShieldCheck,'Settings','Account, security and subscription']]; return <section><div className="page-intro"><div><span className="eyebrow">MYRENTAL SA</span><h2>Tools and guidance</h2><p>Everything else you need to manage your rental properly.</p></div></div><div className="more-list">{items.map(([I,title,text])=><button key={title} onClick={()=>title==='Settings'?notify('Settings module is next'):setPage(title)}><span><I/></span><div><b>{title}</b><small>{text}</small></div><ChevronRight/></button>)}</div><div className="disclaimer"><AlertTriangle/><div><b>Legal guidance, not legal advice</b><p>MyRental SA provides guided workflows and educational information. Serious breaches, evictions and unusual circumstances should be reviewed by a qualified South African property attorney.</p></div></div></section> }
+function More({notify,setPage}) { const items=[[UserRound,'Applications','Review applicants and documents'],[ClipboardCheck,'Inspections','Ingoing, interim and outgoing'],[FilePenLine,'Documents','Leases, addendums and notices'],[CalendarDays,'Renewals','Renewals and term changes'],[WalletCards,'Finances','Rent, deposits and reconciliation'],[BookOpen,'Learn','Plain-language landlord guidance'],[ShieldCheck,'Legal','Terms, disclaimer and privacy'],[ShieldCheck,'Settings','Account, security and subscription']]; return <section><div className="page-intro"><div><span className="eyebrow">MYRENTAL SA</span><h2>Tools and guidance</h2><p>Everything else you need to manage your rental properly.</p></div></div><div className="more-list">{items.map(([I,title,text])=><button key={title} onClick={()=>title==='Settings'?notify('Settings module is next'):setPage(title)}><span><I/></span><div><b>{title}</b><small>{text}</small></div><ChevronRight/></button>)}</div><div className="disclaimer"><AlertTriangle/><div><b>Legal guidance, not legal advice</b><p>MyRental SA provides guided workflows and educational information. Serious breaches, evictions and unusual circumstances should be reviewed by a qualified South African property attorney.</p></div></div></section> }
 
 export default App
