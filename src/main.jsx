@@ -8,6 +8,7 @@ import './modules.css'
 import './legal.css'
 import './support.css'
 import './deposit.css'
+import './applications.css'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode><App /></React.StrictMode>

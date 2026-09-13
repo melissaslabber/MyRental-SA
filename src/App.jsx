@@ -3,6 +3,7 @@ import { supabase, supabaseConfigured } from './supabase'
 import { LearnModule, MaintenanceModule as LiveMaintenance, RentalModule } from './Modules'
 import { LEGAL_VERSION, LegalAcceptance, LegalPage } from './Legal'
 import { ProfessionalHelp, SettingsModule } from './Support'
+import { ApplicationModule } from './Applications'
 import {
   AlertTriangle, Bell, BookOpen, Building2, CalendarDays, ChevronRight,
   ClipboardCheck, FilePenLine, Hammer, Home, KeyRound, LayoutGrid,
@@ -13,7 +14,7 @@ const tasks = []
 
 const flows = [
   { icon: Search, title: 'Advertise & find a tenant', text: 'Prepare, advertise and screen fairly.' },
-  { icon: UserRound, title: 'Tenant applications', text: 'Send a secure application link.' },
+  { icon: UserRound, title: 'Rental application form', text: 'Create a property-specific form to email.' },
   { icon: FilePenLine, title: 'Create a lease', text: 'Build the right agreement step by step.' },
   { icon: ClipboardCheck, title: 'Complete inspections', text: 'Ingoing, interim and outgoing records.' },
   { icon: Hammer, title: 'Manage maintenance', text: 'Track issues, quotes and responsibility.' },
@@ -153,7 +154,8 @@ function Dashboard({ user, profile, onSignOut, demo=false }) {
       {page === 'Rent' && <Rent notify={notify}/>} 
       {page === 'Maintenance' && <LiveMaintenance notify={notify} ownerId={profile?.id} properties={portfolio}/>} 
       {page === 'More' && <More notify={notify} setPage={setPage}/>} 
-      {['Applications','Inspections','Documents','Finances','Renewals'].includes(page) && <RentalModule name={page} ownerId={profile?.id} properties={portfolio} notify={notify}/>} 
+      {page === 'Applications' && <ApplicationModule properties={portfolio} notify={notify}/>} 
+      {['Inspections','Documents','Finances','Renewals'].includes(page) && <RentalModule name={page} ownerId={profile?.id} properties={portfolio} notify={notify}/>} 
       {page === 'Learn' && <LearnModule/>}
       {page === 'Legal' && <LegalPage/>}
       {page === 'Professional help' && <ProfessionalHelp/>}
@@ -163,7 +165,7 @@ function Dashboard({ user, profile, onSignOut, demo=false }) {
     <nav className="bottom-nav">{nav.map(([name, Icon]) => <button className={page===name?'active':''} onClick={()=>setPage(name)} key={name}><Icon size={20}/><span>{name}</span></button>)}</nav>
     <button className="fab" onClick={()=>setQuick(true)} aria-label="Quick add"><Plus size={25}/></button>
 
-    {quick && <div className="modal-backdrop" onClick={()=>setQuick(false)}><div className="sheet" onClick={e=>e.stopPropagation()}><div className="sheet-head"><div><small>QUICK ADD</small><h2>What would you like to do?</h2></div><button onClick={()=>setQuick(false)}><X/></button></div><div className="quick-grid">{[['Property',Building2],['Application link',Link2],['Inspection',ClipboardCheck],['Maintenance',Hammer],['Payment',Receipt],['Reminder',CalendarDays]].map(([n,I])=><button key={n} onClick={()=>{setQuick(false);notify(`${n} form will open here`)}}><I/><span>{n}</span></button>)}</div></div></div>}
+    {quick && <div className="modal-backdrop" onClick={()=>setQuick(false)}><div className="sheet" onClick={e=>e.stopPropagation()}><div className="sheet-head"><div><small>QUICK ADD</small><h2>What would you like to do?</h2></div><button onClick={()=>setQuick(false)}><X/></button></div><div className="quick-grid">{[['Property',Building2],['Application form',FilePenLine],['Inspection',ClipboardCheck],['Maintenance',Hammer],['Payment',Receipt],['Reminder',CalendarDays]].map(([n,I])=><button key={n} onClick={()=>{setQuick(false);if(n==='Application form')setPage('Applications');else notify(`${n} form will open here`)}}><I/><span>{n}</span></button>)}</div></div></div>}
     {toast && <div className="toast">{toast}</div>}
   </div>
 }
@@ -221,6 +223,6 @@ function Rent({notify}) { return <section><div className="page-intro"><div><span
 
 function Maintenance({notify}) { return <section><div className="page-intro"><div><span className="eyebrow">MAINTENANCE</span><h2>Issues and repairs</h2><p>Keep quotes, responsibility, follow-ups and proof in one timeline.</p></div><button className="primary" onClick={()=>notify('Maintenance form will open here')}><Plus size={18}/> Log issue</button></div><div className="empty-card"><ClipboardCheck/><h3>No open maintenance issues</h3><p>New tenant reports and issues you log will appear here.</p><button onClick={()=>notify('Secure link copied')}>Create tenant reporting link</button></div></section> }
 
-function More({notify,setPage}) { const items=[[UserRound,'Applications','Review applicants and documents'],[ClipboardCheck,'Inspections','Ingoing, interim and outgoing'],[FilePenLine,'Documents','Leases, addendums and notices'],[CalendarDays,'Renewals','Renewals and term changes'],[WalletCards,'Finances','Rent, deposits and reconciliation'],[BookOpen,'Learn','Plain-language landlord guidance'],[Building2,'Professional help','Self-manage or appoint an agent'],[ShieldCheck,'Legal','Terms, disclaimer and privacy'],[ShieldCheck,'Settings','Account, password and security']]; return <section><div className="page-intro"><div><span className="eyebrow">MYRENTAL SA</span><h2>Tools and guidance</h2><p>Everything else you need to manage your rental properly.</p></div></div><div className="more-list">{items.map(([I,title,text])=><button key={title} onClick={()=>setPage(title)}><span><I/></span><div><b>{title}</b><small>{text}</small></div><ChevronRight/></button>)}</div><div className="disclaimer"><AlertTriangle/><div><b>Legal guidance, not legal advice</b><p>MyRental SA provides guided workflows and educational information. Serious breaches, evictions and unusual circumstances should be reviewed by a qualified South African property attorney.</p></div></div></section> }
+function More({notify,setPage}) { const items=[[UserRound,'Applications','Create a property-specific form to email'],[ClipboardCheck,'Inspections','Ingoing, interim and outgoing'],[FilePenLine,'Documents','Leases, addendums and notices'],[CalendarDays,'Renewals','Renewals and term changes'],[WalletCards,'Finances','Rent, deposits and reconciliation'],[BookOpen,'Learn','Plain-language landlord guidance'],[Building2,'Professional help','Self-manage or appoint an agent'],[ShieldCheck,'Legal','Terms, disclaimer and privacy'],[ShieldCheck,'Settings','Account, password and security']]; return <section><div className="page-intro"><div><span className="eyebrow">MYRENTAL SA</span><h2>Tools and guidance</h2><p>Everything else you need to manage your rental properly.</p></div></div><div className="more-list">{items.map(([I,title,text])=><button key={title} onClick={()=>setPage(title)}><span><I/></span><div><b>{title}</b><small>{text}</small></div><ChevronRight/></button>)}</div><div className="disclaimer"><AlertTriangle/><div><b>Legal guidance, not legal advice</b><p>MyRental SA provides guided workflows and educational information. Serious breaches, evictions and unusual circumstances should be reviewed by a qualified South African property attorney.</p></div></div></section> }
 
 export default App
