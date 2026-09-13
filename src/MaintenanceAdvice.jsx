@@ -1,0 +1,12 @@
+import { AlertTriangle, Camera, CheckCircle2, Clock3, Hammer, ShieldCheck, Wrench } from 'lucide-react'
+
+const ADVICE=[
+  {icon:Clock3,title:'Respond according to risk',text:'Treat active leaks, exposed electricity, fire, structural, sanitation and security risks as urgent. Protect people and property first; do not wait for a responsibility dispute to be resolved.'},
+  {icon:Camera,title:'Record the evidence',text:'Ask for wide and close-up photographs, the date noticed, exact location and what happened immediately before the issue. Keep messages, inspection notes and before-and-after images.'},
+  {icon:ShieldCheck,title:'Assess who may be responsible',text:'Check the cause, lease, age, fair wear and tear, landlord duties, tenant conduct, body corporate responsibility and insurance. Do not automatically charge the tenant because they reported it.'},
+  {icon:Wrench,title:'Use suitable contractors',text:'For electrical, gas, structural and other regulated work, use appropriately qualified contractors. Obtain quotations and written authority, and keep invoices and compliance documents.'},
+  {icon:CheckCircle2,title:'Arrange lawful access',text:'Agree a reasonable date and time with the tenant except in a genuine emergency. Respect privacy, explain who will attend and retain proof of the access arrangement.'},
+  {icon:Hammer,title:'Close the issue properly',text:'Record the repair, cost, payment decision and completion date. Ask the tenant to confirm whether it is satisfactory and retain final photographs. Follow up if the underlying cause may return.'}
+]
+
+export function MaintenanceAdvice(){return <section className="maintenance-advice"><div className="maintenance-advice-head"><div><span className="eyebrow">PRACTICAL GUIDANCE</span><h2>Before deciding who pays</h2><p>Maintenance responsibility depends on the cause, lease, legal duties and evidence—not simply who reported the problem.</p></div><Hammer/></div><div className="maintenance-advice-grid">{ADVICE.map(({icon:Icon,title,text})=><article key={title}><Icon/><div><b>{title}</b><p>{text}</p></div></article>)}</div><div className="maintenance-alert"><AlertTriangle/><p><b>Get professional help when necessary.</b> Use an emergency service where safety is at risk. Consult a qualified South African property attorney for disputed access, serious damage, withholding of rent, alleged breach or contested payment responsibility. This guidance is not legal advice.</p></div></section>}

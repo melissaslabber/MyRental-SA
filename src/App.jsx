@@ -8,6 +8,7 @@ import { InspectionModule } from './Inspections'
 import { DocumentsModule } from './Documents'
 import { RenewalsModule } from './Renewals'
 import { LearnModule } from './Learn'
+import { MaintenanceAdvice } from './MaintenanceAdvice'
 import {
   AlertTriangle, Bell, BookOpen, Building2, CalendarDays, ChevronRight,
   ClipboardCheck, FilePenLine, Hammer, Home, KeyRound, LayoutGrid,
@@ -156,7 +157,7 @@ function Dashboard({ user, profile, onSignOut, demo=false }) {
       {page === 'Today' && <Today setPage={setPage} setQuick={setQuick} properties={portfolio} tasks={attention}/>} 
       {page === 'Properties' && <Properties notify={notify} properties={portfolio} ownerId={profile?.id} onRefresh={()=>setRefreshKey(x=>x+1)}/>} 
       {page === 'Rent' && <Rent notify={notify}/>} 
-      {page === 'Maintenance' && <LiveMaintenance notify={notify} ownerId={profile?.id} properties={portfolio}/>} 
+      {page === 'Maintenance' && <><MaintenanceAdvice/><LiveMaintenance notify={notify} ownerId={profile?.id} properties={portfolio}/></>} 
       {page === 'More' && <More notify={notify} setPage={setPage}/>} 
       {page === 'Applications' && <ApplicationModule properties={portfolio} notify={notify}/>} 
       {page === 'Inspections' && <InspectionModule properties={portfolio} ownerId={profile?.id} notify={notify}/>} 
