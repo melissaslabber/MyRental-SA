@@ -1,0 +1,3 @@
+export const propertyPlans=[{minimum:0,maximum:2,amount:89,label:'1–2 homes'},{minimum:3,maximum:9,amount:299,label:'3–9 homes'},{minimum:10,maximum:19,amount:599,label:'10–19 homes'},{minimum:20,maximum:null,amount:1500,label:'20+ homes'}]
+export function planForHomes(count){if(!Number.isInteger(count)||count<0)throw new Error('Invalid property count');return [...propertyPlans].reverse().find(p=>count>=p.minimum)}
+export function selectedPlan(amount,count){const plan=propertyPlans.find(p=>p.amount===Number(amount));if(!plan||plan.amount<planForHomes(count).amount)throw new Error('Choose a plan that covers all your homes.');return plan}

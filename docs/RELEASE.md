@@ -3,7 +3,7 @@
 ## Prepared scope
 
 - Isolated MyRental SA Supabase backend, owner admin dashboard and membership controls.
-- PayFast R89 immediate monthly subscription, server-validated notifications, idempotent ledger, paid-through access, in-app cancellation/reason, first-payment 48-hour refund-review queue. Recording a refund does not transfer money.
+- PayFast property-tier monthly subscription (1–2 homes R89; 3–9 R299; 10–19 R599; 20+ R1,500), immediate first payment, server-validated notifications, idempotent ledger, paid-through access, in-app cancellation/reason, first-payment 48-hour refund-review queue. Recording a refund does not transfer money.
 - Personalised transactional payment reminders after 10 minutes, 24 hours and monthly while outstanding; confirmed payments, free staff access, cancellation and suspension stop reminders.
 - Private municipal/repair/expense evidence, March–February cash-flow report and CSV/print/PDF output. Invoice receipts post rent and service recovery separately, once.
 - Monthly and supplementary-service branded invoice PDFs, municipal tenant-share import, landlord bank/contact snapshots, configurable send/due/overdue-alert days, optional scheduled email, manual WhatsApp/PDF sharing, partial/full receipt tracking, friendly reminders and reviewed CPA breach drafts.
@@ -68,3 +68,7 @@ The Android debug APK compiled successfully in GitHub Actions run `40096935404` 
 ## Validation
 
 `npm test` covers database/RLS isolation, duplicate notification/payment handling, cancellation replay, refund-request idempotency, receipt posting and allocation, March–February/leap years, tenant-recovery double counting, CSV safety, notice drafts and actual PDF generation. PDF output was rendered for visual review with synthetic data. Browser checks use an isolated local fixture app; they do not prove live database or provider configuration.
+
+## Property-count pricing
+
+Apply `supabase/property-pricing.sql` after existing billing migrations. Checkout prices come from server-counted properties and an explicitly confirmed eligible plan. Paid members upgrade before adding a home beyond their plan capacity. Confirmed PayFast PATCH updates change the next recurring amount in cents, without an adhoc charge. Pending changes are durable and retried with the same amount; webhooks validate against the stored change. First-payment refund review uses the actual original payment, not the later upgraded plan amount. All saved properties, including vacant ones, count; staff/admin exemptions remain. Provider sandbox upgrade/downgrade testing remains required before enabling billing.

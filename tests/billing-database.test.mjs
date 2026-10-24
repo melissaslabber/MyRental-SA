@@ -97,5 +97,26 @@ test('database lifecycle, duplicate delivery, cancellation and member isolation'
  assert.equal((await db.query('select * from claim_agent_contacts($1)',[lead])).rows.length,1)
  assert.equal((await db.query('select * from claim_agent_contacts($1)',[lead])).rows.length,0)
  await db.exec('reset role')
+ await db.exec(await readFile(new URL('../supabase/property-pricing.sql',import.meta.url),'utf8'))
+ const tierSub=(await db.query(`insert into billing_subscriptions(user_id,payment_reference,status,amount,provider_token,terms_version,paid_through) values($1,'tier-test','active',89,'tier-token','property-tiers',now()+interval '30 days') returning id`,[alice])).rows[0].id
+ await db.exec('update billing_settings set enabled=true')
+ let homeCount=1
+ for(const [amount,limit] of [[89,2],[299,9],[599,19],[1500,21]]){
+  await db.query('update billing_subscriptions set amount=$1 where id=$2',[amount,tierSub])
+  await db.exec(`set role authenticated;select set_config('request.jwt.claim.sub','${alice}',false)`)
+  while(homeCount<limit){await db.query('insert into properties(owner_id,name) values($1,$2)',[alice,'Tier home '+(++homeCount)])}
+  if(amount!==1500)await assert.rejects(()=>db.query('insert into properties(owner_id,name) values($1,$2)',[alice,'Over plan capacity']))
+  await db.exec('reset role')
+ }
+ await assert.rejects(()=>db.query('select public.billing_prepare_plan($1,$2)',[alice,299]))
+ const change=(await db.query('select * from public.billing_prepare_plan($1,$2)',[alice,1500])).rows[0]
+ assert.equal(Number(change.new_amount),1500)
+ await db.query('select public.billing_finish_plan($1,$2)',[change.id,alice])
+ // Old provider replays remain duplicates even after a tier amount changes.
+ await db.query('update billing_subscriptions set amount=299 where id=$1',[sub.id])
+ const replay=await event('payment-1');assert.equal(replay.rows[0].billing_apply_event.duplicate,true)
+ await db.query('delete from billing_refunds where subscription_id=$1',[sub.id])
+ await db.query('select public.billing_cancel_local($1,$2,$3)',[sub.id,alice,'Verify original-payment refund amount'])
+ assert.equal(Number((await db.query('select amount from billing_refunds where subscription_id=$1',[sub.id])).rows[0].amount),89)
  }finally{await db.close()}
 })

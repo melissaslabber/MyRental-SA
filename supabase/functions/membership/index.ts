@@ -2,6 +2,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2.116.0'
 import crypto from 'node:crypto'
 import { Buffer } from 'node:buffer'
 import { signature, safeEqual, notificationSignature, notificationParameterString, parameterString } from './payfast.js'
+import {propertyPlans,planForHomes,selectedPlan} from '../../../shared/pricing.js'
 import {issueAdminProof,validAdminProof} from './admin-proof.js'
 import {submitAgentContact,sendAgentContacts} from './agents.ts'
 import { rentalAction,rentalScheduledJob } from './rentals.ts'
@@ -19,10 +20,10 @@ async function encrypt(value:string){const iv=crypto.randomBytes(12);const bytes
 async function decrypt(value:string){const [iv,data]=value.split('.');return new TextDecoder().decode(await crypto.webcrypto.subtle.decrypt({name:'AES-GCM',iv:Buffer.from(iv,'base64')},await aesKey(),Buffer.from(data,'base64')))}
 async function credentials(){const rows=await checked(db.from('billing_secrets').select('name,ciphertext'));const c:Record<string,string>={};for(const row of rows)c[row.name]=await decrypt(row.ciphertext);for(const name of ['PAYFAST_MERCHANT_ID','PAYFAST_MERCHANT_KEY','PAYFAST_PASSPHRASE','RESEND_API_KEY','EMAIL_FROM'])c[name]=Deno.env.get(name)||c[name]||'';return c}
 const configured=(c:any)=>Boolean(c.PAYFAST_MERCHANT_ID&&c.PAYFAST_MERCHANT_KEY&&c.PAYFAST_PASSPHRASE)
-async function provider(c:any,s:any,path:string,method='GET'){
+async function provider(c:any,s:any,path:string,method='GET',payload:Record<string,string>={}){
  const headers:any={'merchant-id':c.PAYFAST_MERCHANT_ID,version:'v1',timestamp:new Date(Date.now()+7200000).toISOString().slice(0,19)+'+02:00'}
- headers.signature=signature(Object.fromEntries(Object.entries({...headers,passphrase:c.PAYFAST_PASSPHRASE}).sort(([a],[b])=>a.localeCompare(b))))
- const response=await fetch('https://api.payfast.co.za'+path+(s.sandbox?'?testing=true':''),{method,headers,signal:AbortSignal.timeout(12000)})
+ headers.signature=signature(Object.fromEntries(Object.entries({...headers,...payload,passphrase:c.PAYFAST_PASSPHRASE}).sort(([a],[b])=>a.localeCompare(b))))
+ const response=await fetch('https://api.payfast.co.za'+path+(s.sandbox?'?testing=true':''),{method,headers:{...headers,...(Object.keys(payload).length?{'Content-Type':'application/x-www-form-urlencoded'}:{})},...(Object.keys(payload).length?{body:new URLSearchParams(payload).toString()}:{}),signal:AbortSignal.timeout(12000)})
  const result=await response.json();assert(response.ok&&!['error','failed'].includes(result.status)&&!(result.code>=400),'PayFast could not confirm this request. Your billing record is preserved.',502);return result
 }
 async function audit(actor:string,action:string,subject:string,details:any={}){await checked(db.from('billing_audit').insert({actor_id:actor,action,subject_id:subject,details}))}
@@ -35,8 +36,10 @@ async function status(user:any,heartbeat=true){
  if(heartbeat)await checked(db.from('billing_members').update({last_seen_at:new Date().toISOString()}).eq('user_id',user.id))
  const member=await checked(db.from('billing_members').select('free_access,suspended').eq('user_id',user.id).single())
  const access=admin||!member.suspended&&(!s.enabled||member.free_access||sub?.status==='active'&&!sub.cancel_requested_at&&Date.parse(sub.paid_through)>Date.now())
+ const counted=await db.from('properties').select('id',{count:'exact',head:true}).eq('owner_id',user.id);assert(!counted.error,'Could not determine property pricing',503);const propertyCount=counted.count||0,requiredPlan=planForHomes(propertyCount)
+ const pendingPlan=await checked(db.from('billing_plan_changes').select('new_amount,status').eq('user_id',user.id).eq('status','prepared').order('created_at',{ascending:false}).limit(1).maybeSingle())
  const c=await credentials()
- return {isAdmin:admin,enabled:s.enabled,sandbox:s.sandbox,amount:Number(s.amount),access,freeAccess:member.free_access,suspended:member.suspended,subscription:publicSubscription(sub),checkoutReady:configured(c),refunds:await checked(db.from('billing_refunds').select('id,amount,status,created_at,processed_at').eq('user_id',user.id))}
+ return {propertyCount,plans:propertyPlans,requiredAmount:requiredPlan.amount,pendingPlan, isAdmin:admin,enabled:s.enabled,sandbox:s.sandbox,amount:sub?.status==='active'?Number(sub.amount):requiredPlan.amount,access,freeAccess:member.free_access,suspended:member.suspended,subscription:publicSubscription(sub),checkoutReady:configured(c),refunds:await checked(db.from('billing_refunds').select('id,amount,status,created_at,processed_at').eq('user_id',user.id))}
 }
 async function webhook(req:Request){
  assert(req.headers.get('content-type')?.includes('application/x-www-form-urlencoded'),'Invalid content type',415)
@@ -96,7 +99,7 @@ async function reminders(req:Request){
     await checked(db.from('billing_email_queue').update({status:'skipped'}).eq('id',item.id));continue
    }
    const name=String(u.data.user.user_metadata?.full_name||'there').split(' ')[0].replace(/[<>&"']/g,'').slice(0,60)
-   const text=`Hi ${name},\n\nYour MyRental SA subscription payment is still outstanding. You can sign in to review your payment status and continue setting up your rental account.\n\nMembership is R${Number(s.amount).toFixed(2)} per month. If your bank already shows a charge, check payment status before starting another payment.\n\nContinue securely: ${APP}/\n\nMyRental SA`
+   const text=`Hi ${name},\n\nYour MyRental SA subscription payment is still outstanding. You can sign in to review your payment status and continue setting up your rental account.\n\nYour selected membership is R${Number(sub?.amount||89).toFixed(2)} per month. Plans depend on the number of homes. If your bank already shows a charge, check payment status before starting another payment.\n\nContinue securely: ${APP}/\n\nMyRental SA`
    const response=await fetch('https://api.resend.com/emails',{method:'POST',headers:{Authorization:'Bearer '+c.RESEND_API_KEY,'Content-Type':'application/json','Idempotency-Key':'myrental-reminder/'+item.id},body:JSON.stringify({from:c.EMAIL_FROM,to:[u.data.user.email],subject:'Your MyRental SA subscription payment',text}),signal:AbortSignal.timeout(12000)})
    if(!response.ok)throw new Error('Email provider rejected the request')
    await checked(db.from('billing_email_queue').update({status:'sent',sent_at:new Date().toISOString(),last_error:null}).eq('id',item.id));sent++
@@ -124,12 +127,24 @@ Deno.serve(async(req:Request)=>{
    assert(body.acceptedTerms===true&&body.confirmedAdult===true,'Confirm the subscription terms and that you are at least 18.')
    assert(user.email_confirmed_at,'Confirm your email before subscribing',403)
    const member=await status(user);assert(!member.freeAccess&&!member.isAdmin&&!member.suspended,'This account does not need or cannot start a subscription',409)
-   const sub=await checked(db.rpc('billing_begin_checkout',{p_user:user.id,p_amount:s.amount,p_reference:'MRSA-'+crypto.randomUUID(),p_terms:'2026-10-monthly-48h'}))
+   const plan=selectedPlan(body.planAmount??member.requiredAmount,member.propertyCount);assert(Number(body.confirmedAmount)===plan.amount,'The plan price changed. Refresh and confirm the monthly amount.');
+   const started=await checked(db.rpc('billing_begin_checkout',{p_user:user.id,p_amount:plan.amount,p_reference:'MRSA-'+crypto.randomUUID(),p_terms:'2026-10-property-tiers-v1'}));const sub=Array.isArray(started)?started[0]:started
    const full=String(user.user_metadata?.full_name||'Landlord').split(' ')
-   const fields:any={merchant_id:c.PAYFAST_MERCHANT_ID,merchant_key:c.PAYFAST_MERCHANT_KEY,return_url:APP+'/?payment=return',cancel_url:APP+'/?payment=cancelled',notify_url:url+'/functions/v1/membership/webhook',name_first:full[0].slice(0,50),name_last:full.slice(1).join(' ').slice(0,50),email_address:user.email,m_payment_id:sub.payment_reference,amount:Number(s.amount).toFixed(2),item_name:'MyRental SA monthly membership',item_description:'Monthly subscription. 48-hour money-back window on your first payment.',subscription_type:'1',billing_date:nextBillingDate(new Date().toISOString()),recurring_amount:Number(s.amount).toFixed(2),frequency:'3',cycles:'0'}
+   const fields:any={merchant_id:c.PAYFAST_MERCHANT_ID,merchant_key:c.PAYFAST_MERCHANT_KEY,return_url:APP+'/?payment=return',cancel_url:APP+'/?payment=cancelled',notify_url:url+'/functions/v1/membership/webhook',name_first:full[0].slice(0,50),name_last:full.slice(1).join(' ').slice(0,50),email_address:user.email,m_payment_id:sub.payment_reference,amount:Number(plan.amount).toFixed(2),item_name:'MyRental SA monthly membership',item_description:'Monthly subscription. 48-hour money-back window on your first payment.',subscription_type:'1',billing_date:nextBillingDate(new Date().toISOString()),recurring_amount:Number(plan.amount).toFixed(2),frequency:'3',cycles:'0'}
    fields.signature=signature(fields,c.PAYFAST_PASSPHRASE)
    await audit(user.id,'checkout_prepared',user.id,{subscription:sub.id})
    return respond({url:`https://${s.sandbox?'sandbox':'www'}.payfast.co.za/eng/process`,fields})
+  }
+  if(action==='change_plan'){
+   const member=await status(user),s=await setting(),c=await credentials();assert(s.enabled&&configured(c),'Subscriptions are not open yet.',503)
+   assert(body.confirmed===true&&!member.isAdmin&&!member.freeAccess&&!member.suspended,'Confirm the monthly plan change.')
+   const plan=selectedPlan(body.planAmount,member.propertyCount);assert(Number(body.confirmedAmount)===plan.amount,'Confirm the current plan price.')
+   const sub=await subscription(user.id);assert(sub?.status==='active'&&sub.provider_token&&!sub.cancel_requested_at,'Refresh your confirmed subscription first.')
+   const prepared=await checked(db.rpc('billing_prepare_plan',{p_user:user.id,p_amount:plan.amount}));const change=Array.isArray(prepared)?prepared[0]:prepared
+   const updated=await provider(c,s,`/subscriptions/${encodeURIComponent(sub.provider_token)}/update`,'PATCH',{amount:String(plan.amount*100)})
+   assert(Number(updated?.data?.response?.amount)===plan.amount*100,'PayFast did not confirm the new amount. Retry the same plan; no extra charge is made.',502)
+   await checked(db.rpc('billing_finish_plan',{p_id:change.id,p_user:user.id}))
+   return respond({message:`Your next monthly recurring payment is R${plan.amount}. No additional payment was taken now.`})
   }
   if(action==='request_deletion'){
    assert(body.confirmed===true,'Confirm your deletion request')
