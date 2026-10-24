@@ -1,0 +1,6 @@
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import {financialYear,currentFinancialYear,annualSummary,reportCsv} from '../src/financial-year.js'
+test('March-February boundaries include leap years',()=>{assert.deepEqual(financialYear(2027),{start:'2027-03-01',end:'2028-02-29',label:'1 Mar 2027 – 29 Feb 2028'});assert.equal(financialYear(2026).end,'2027-02-28');assert.equal(currentFinancialYear(new Date('2026-02-28T21:59:59Z')),2025);assert.equal(currentFinancialYear(new Date('2026-02-28T22:00:00Z')),2026)})
+test('gross expense and tenant recovery are counted once, tenant direct costs excluded',()=>{const entries=[{entry_type:'income',category:'rent',amount:10000},{entry_type:'expense',paid_by:'landlord',category:'municipal',amount:2000,tenant_responsibility:600},{entry_type:'income',category:'tenant_recovery',amount:600},{entry_type:'expense',paid_by:'tenant',category:'water',amount:400}];assert.deepEqual(annualSummary(entries),{income:10600,expenses:2000,net:8600,tenantPaid:400,recoveries:600})})
+test('currency totals avoid floating-point rounding and CSV formula injection',()=>{const e=[{entry_type:'income',category:'rent',amount:.1,description:'=DANGER()',attachments:[]},{entry_type:'income',category:'rent',amount:.2}];assert.equal(annualSummary(e).income,.3);assert.match(reportCsv(e,[],financialYear(2026)),/'=DANGER\(\)/)})

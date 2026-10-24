@@ -1,0 +1,64 @@
+name: MyRental SA Android build
+on:
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: Android build
+        type: choice
+        options: [debug, release]
+        default: debug
+permissions:
+  contents: read
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.build_type == 'release' && 'play-release' || 'android-test' }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Build and verify web application
+        run: |
+          npm ci
+          npm test
+          npm run android:sync
+      - name: Configure Android runtime
+        run: |
+          echo "JAVA_HOME=$JAVA_HOME_21_X64" >> "$GITHUB_ENV"
+          echo "$JAVA_HOME_21_X64/bin" >> "$GITHUB_PATH"
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-36' 'build-tools;36.0.0' >/dev/null
+          chmod +x android/gradlew
+      - name: Build debug APK
+        if: inputs.build_type == 'debug'
+        working-directory: android
+        run: ./gradlew assembleDebug lintDebug --no-daemon
+      - name: Build signed Play Store bundle
+        if: inputs.build_type == 'release'
+        working-directory: android
+        env:
+          MYRENTAL_KEYSTORE_BASE64: ${{ secrets.MYRENTAL_KEYSTORE_BASE64 }}
+          MYRENTAL_UPLOAD_STORE_PASSWORD: ${{ secrets.MYRENTAL_UPLOAD_STORE_PASSWORD }}
+          MYRENTAL_UPLOAD_KEY_ALIAS: ${{ secrets.MYRENTAL_UPLOAD_KEY_ALIAS }}
+          MYRENTAL_UPLOAD_KEY_PASSWORD: ${{ secrets.MYRENTAL_UPLOAD_KEY_PASSWORD }}
+          MYRENTAL_VERSION_CODE: ${{ github.run_number }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = 'refs/heads/main'
+          test -n "$MYRENTAL_KEYSTORE_BASE64"
+          export MYRENTAL_UPLOAD_STORE_FILE="$RUNNER_TEMP/myrental-upload.jks"
+          trap 'rm -f "$MYRENTAL_UPLOAD_STORE_FILE"' EXIT
+          printf '%s' "$MYRENTAL_KEYSTORE_BASE64" | base64 --decode > "$MYRENTAL_UPLOAD_STORE_FILE"
+          ./gradlew bundleRelease --no-daemon
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: MyRental-SA-${{ inputs.build_type }}
+          path: |
+            android/app/build/outputs/apk/debug/*.apk
+            android/app/build/outputs/bundle/release/*.aab
+            android/app/build/reports/lint-results-debug.html
+          if-no-files-found: error
+          retention-days: 7

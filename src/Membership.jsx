@@ -1,0 +1,37 @@
+import { useEffect, useState } from 'react'
+import { CreditCard, RefreshCw, ShieldCheck } from 'lucide-react'
+import { membershipApi, openPayfast } from './membership-api'
+import { supabase } from './supabase'
+import {isNative} from './native'
+import {DeletionRequest} from './DeletionRequest'
+const date=value=>value?new Intl.DateTimeFormat('en-ZA',{dateStyle:'medium',timeStyle:'short'}).format(new Date(value)):'Not available'
+export function MembershipBoundary({user,children}){
+ const [membership,setMembership]=useState(null),[error,setError]=useState('')
+ const load=async()=>{setError('');try{setMembership(await membershipApi())}catch(e){setError(e.message)}}
+ useEffect(()=>{load();const timer=setInterval(load,60000);return ()=>clearInterval(timer)},[user.id])
+ if(error&&!membership)return <div className="membership-shell"><div className="billing-card"><h2>Membership service unavailable</h2><p role="alert">{error}</p><button className="primary" onClick={load}>Try again</button><button className="secondary" onClick={()=>supabase.auth.signOut()}>Sign out</button></div></div>
+ if(!membership)return <div className="membership-shell"><p role="status">Checking your membership…</p></div>
+ if(!membership.access)return <div className="membership-shell"><MembershipPanel membership={membership} refresh={load}/><DeletionRequest/><button className="secondary" onClick={()=>supabase.auth.signOut()}>Sign out</button></div>
+ return children(membership,load)
+}
+export function MembershipPanel({membership,refresh}){
+ const [accepted,setAccepted]=useState(false),[adult,setAdult]=useState(false),[reason,setReason]=useState(''),[confirmCancel,setConfirmCancel]=useState(false),[busy,setBusy]=useState(false),[message,setMessage]=useState('')
+ const sub=membership.subscription
+ const run=async(fn)=>{setBusy(true);setMessage('');try{await fn()}catch(e){setMessage(e.message)}finally{setBusy(false)}}
+ const checkout=()=>run(async()=>openPayfast(await membershipApi('checkout',{acceptedTerms:accepted,confirmedAdult:adult})))
+ const cancel=()=>run(async()=>{const result=await membershipApi('cancel',{reason});setMessage(result.message);setConfirmCancel(false);await refresh()})
+ const payable=!sub||sub.status==='cancelled'
+ if(isNative())return <section className="billing-card"><span className="eyebrow">MYRENTAL SA ACCOUNT</span><h2>Your account access</h2><p>{membership.access?'Your account is ready to use.':'This account does not currently have access. You can refresh its status below.'}</p><p>Membership status: {membership.suspended?'Suspended':membership.freeAccess?'Staff access':sub?.status?.replaceAll('_',' ')||'No active membership'}</p><button className="secondary" disabled={busy} onClick={()=>run(refresh)}>Refresh account status</button>{sub&&['active','failed','cancellation_pending'].includes(sub.status)&&<><button className="billing-cancel" onClick={()=>setConfirmCancel(!confirmCancel)}>Cancel subscription</button>{confirmCancel&&<div className="cancel-confirm"><p>Recurring billing and app access will stop. Your saved account and rental records remain until you request deletion.</p><label>Reason<textarea value={reason} onChange={e=>setReason(e.target.value)}/></label><button className="danger-button" disabled={busy||reason.trim().length<5} onClick={cancel}>Confirm cancellation</button></div>}</>}{message&&<p role="status">{message}</p>}</section>
+ return <section className="billing-card"><span className="billing-icon"><CreditCard/></span><span className="eyebrow">MYRENTAL SA MEMBERSHIP</span><h2>{membership.access?'Your membership':'Manage your rentals with confidence'}</h2><p className="billing-price">R{membership.amount}<small> / month</small></p><p>Properties, rental records, inspections and reminders in one place.</p>
+ <div className="billing-status"><b>{membership.isAdmin?'Administrator':membership.suspended?'Account suspended':membership.freeAccess?'Free staff access':sub?.status?.replaceAll('_',' ')||'Awaiting subscription'}</b>{sub?.paid_through&&<small>Paid period ends {date(sub.paid_through)}</small>}</div>
+ {membership.sandbox&&membership.enabled&&<p className="billing-notice">PayFast test mode. Test payments do not charge real money.</p>}
+ {!membership.enabled&&<p className="billing-notice">Online subscriptions have not opened yet. Your account is saved.</p>}
+ {membership.suspended&&<p className="billing-notice">Please contact the administrator about your access.</p>}
+ {membership.enabled&&payable&&!membership.isAdmin&&!membership.freeAccess&&!membership.suspended&&<><div className="billing-terms"><ShieldCheck size={20}/><p>R{membership.amount} is charged now, then automatically every month. Cancel in the app at any time; access stops immediately. Cancel within 48 hours of your first payment to request a full refund. Refunds are reviewed and processed separately; bank timing varies.</p></div><label className="billing-check"><input type="checkbox" checked={accepted} onChange={e=>setAccepted(e.target.checked)}/>I agree to the monthly recurring charge and cancellation/refund terms.</label><label className="billing-check"><input type="checkbox" checked={adult} onChange={e=>setAdult(e.target.checked)}/>I am at least 18 years old.</label><button className="primary" disabled={busy||!accepted||!adult||!membership.checkoutReady} onClick={checkout}>{busy?'Preparing…':`Continue to PayFast · R${membership.amount}`}</button></>}
+ {sub&&['pending','failed'].includes(sub.status)&&<p className="billing-notice">{sub.status==='pending'?'We are waiting for PayFast confirmation. Returning from checkout does not activate access.':'Your payment needs attention.'} Refresh the status before trying again. Do not make another payment if your bank shows a charge.</p>}
+ <button className="secondary" disabled={busy} onClick={()=>run(refresh)}><RefreshCw size={16}/> Refresh payment status</button>
+ {sub&&['active','failed','cancellation_pending'].includes(sub.status)&&<><button className="billing-cancel" onClick={()=>setConfirmCancel(!confirmCancel)}>Cancel subscription</button>{confirmCancel&&<div className="cancel-confirm"><h3>Cancel recurring billing?</h3><p>This stops future PayFast billing and removes app access immediately. Your saved account and rental data are retained.</p><label>Reason for cancellation<textarea value={reason} onChange={e=>setReason(e.target.value)} minLength={5} maxLength={1000}/></label><button className="danger-button" disabled={busy||reason.trim().length<5} onClick={cancel}>Confirm cancellation</button><button className="secondary" disabled={busy} onClick={()=>setConfirmCancel(false)}>Keep subscription</button></div>}</>}
+ {membership.refunds?.map(r=><p key={r.id} className="billing-notice">Refund request: R{r.amount} · {r.status.replaceAll('_',' ')}. {r.status==='processed'?'The administrator has recorded processing.':'A request does not mean money has already been returned.'}</p>)}
+ {message&&<p role="status" className="billing-notice">{message}</p>}
+ </section>
+}

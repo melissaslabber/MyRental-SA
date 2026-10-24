@@ -4,7 +4,7 @@ import { useEffect } from 'react'
 export function DialogAccessibility(){
   useEffect(()=>{
     let active=null, previous=null, oldOverflow=''
-    const selector='.editor-backdrop > form, .modal-backdrop > .sheet'
+    const selector='.editor-backdrop > form, .editor-backdrop > .lease-editor, .modal-backdrop > .sheet'
     const focusables=()=>active?[...active.querySelectorAll('button,input,select,textarea,a[href],[tabindex="0"]')].filter(el=>!el.disabled&&el.getClientRects().length):[]
     const sync=()=>{
       const next=[...document.querySelectorAll(selector)].at(-1)||null
