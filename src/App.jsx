@@ -9,6 +9,7 @@ import { DocumentsModule } from './Documents'
 import { RenewalsModule } from './Renewals'
 import { LearnModule } from './Learn'
 import { MaintenanceAdvice } from './MaintenanceAdvice'
+import {PropertyFile} from './PropertyFile'
 import { AdminGate } from './AdminGate'
 import {PropertyFinance} from './PropertyFinance'
 import {Invoices} from './Invoices'
@@ -24,7 +25,7 @@ import {
   Link2, Menu, Plus, Receipt, Search, ShieldCheck, UserRound, WalletCards, X
 } from 'lucide-react'
 
-const pages = ['Today','Properties','Rent','Maintenance','More','Applications','Inspections','Documents','Renewals','Finances','Learn','Legal','Professional help','Settings','Admin','Membership','Invoices']
+const pages = ['Today','Properties','Rent','Maintenance','More','Applications','Inspections','Documents','Renewals','Finances','Learn','Legal','Professional help','Settings','Admin','Membership','Invoices','Property file']
 
 const flows = [
   { icon: Search, title: 'Advertise & find a tenant', text: 'Prepare, advertise and screen fairly.' },
@@ -121,7 +122,9 @@ export function Dashboard({ user, profile, onSignOut, membership, refreshMembers
   const [dataError,setDataError] = useState('')
   const [dataLoading,setDataLoading] = useState(!demo)
   const navigate=(next)=>{setPage(next);window.scrollTo({top:0,behavior:'instant'})}
-  const openProperty=(property)=>{localStorage.setItem('myrental_open_property',property.id);navigate('Properties')}
+  const [filePropertyId,setFilePropertyId]=useState(()=>localStorage.getItem('myrental_file_property')||'')
+  const [fileLeaseEditing,setFileLeaseEditing]=useState(false)
+  const openProperty=(property)=>{setFilePropertyId(property.id);localStorage.setItem('myrental_file_property',property.id);navigate('Property file')}
   const [toast, setToast] = useState('')
   const [guidance,setGuidance]=useState(null)
   const [portfolio, setPortfolio] = useState([])
@@ -133,7 +136,7 @@ export function Dashboard({ user, profile, onSignOut, membership, refreshMembers
   const leaseTasks=leaseExpiryAlerts(portfolio,alertClock).map(alert=>({icon:CalendarDays,title:alert.daysLeft<0?'Lease expired — follow up':`Lease expires in ${alert.daysLeft} ${alert.daysLeft===1?'day':'days'}`,detail:`${alert.propertyName} · ${alert.tenantName} · Ends ${new Intl.DateTimeFormat('en-ZA',{day:'numeric',month:'short',year:'numeric'}).format(new Date(`${alert.endDate}T12:00:00`))}. Confirm whether the tenant wants to renew or move out. Record the agreed outcome and update the lease details.`,level:alert.daysLeft<=30?'urgent':'high',page:'Renewals',propertyId:alert.propertyId}))
   const allAttention=[...leaseTasks,...attention]
   const today = useMemo(() => new Intl.DateTimeFormat('en-ZA', { weekday:'long', day:'numeric', month:'long' }).format(new Date()), [])
-  const notify = (message,meta={}) => { const next=nextSteps(message,page);if(next)setGuidance({...next,...meta});setToast(message); setTimeout(() => setToast(''), 2600) }
+  const notify = (message,meta={}) => { const next=nextSteps(message,meta.flow||page);if(next)setGuidance({...next,...meta});setToast(message); setTimeout(() => setToast(''), 2600) }
 
   useEffect(()=>{localStorage.setItem('myrental_last_page',page)},[page])
   useEffect(()=>{
@@ -196,6 +199,7 @@ export function Dashboard({ user, profile, onSignOut, membership, refreshMembers
       {dataLoading&&<div className="data-loading" role="status">Loading your portfolio…</div>}
       {guidance&&<section className="next-step-card no-print" aria-label="What to do next"><div className="sheet-head"><h2>{guidance.title}</h2><button aria-label="Dismiss next steps" onClick={()=>setGuidance(null)}><X size={18}/></button></div><ul>{guidance.tips.map(t=><li key={t}>{t}</li>)}</ul><div className="invoice-actions">{guidance.actions.map(([label,next])=><button className="secondary" key={label} onClick={()=>{if(next==='Properties'&&guidance.propertyId)localStorage.setItem('myrental_open_property',guidance.propertyId);setGuidance(null);navigate(next)}}>{label}<ChevronRight size={17}/></button>)}</div></section>}
       {page === 'Today'  && <Today setPage={navigate} setQuick={setQuick} properties={portfolio} tasks={allAttention} openProperty={openProperty} addProperty={()=>setAddingProperty(true)} loading={dataLoading} dataError={dataError} attentionError={attentionError} notify={notify}/>}
+      {page === 'Property file' && (dataLoading?<p>Loading property file…</p>:<PropertyFile key={filePropertyId} property={portfolio.find(p=>p.id===filePropertyId)} ownerId={profile?.id} profile={profile} user={user} notify={notify} onBack={()=>navigate('Today')} onEditLease={()=>setFileLeaseEditing(true)}/>)}
       {page === 'Properties' && <Properties onTenantNotice={id=>{localStorage.setItem('myrental_renewal_property',id);localStorage.setItem('myrental_tenant_notice',id);navigate('Renewals')}} notify={notify} properties={portfolio} ownerId={profile?.id} onRefresh={()=>setRefreshKey(x=>x+1)}/>}
       {page === 'Rent' && <LearnModule properties={portfolio} notify={notify}/>}
       {page === 'Maintenance' && <><MaintenanceAdvice/><LiveMaintenance notify={notify} ownerId={profile?.id} properties={portfolio}/></>}
@@ -219,6 +223,7 @@ export function Dashboard({ user, profile, onSignOut, membership, refreshMembers
 
     {quick && <div className="modal-backdrop" onClick={()=>setQuick(false)}><div className="sheet" role="dialog" aria-modal="true" aria-label="Quick actions" onClick={e=>e.stopPropagation()}><div className="sheet-head"><div><small>QUICK ADD</small><h2>What would you like to do?</h2></div><button aria-label="Close quick actions" onClick={()=>setQuick(false)}><X/></button></div><div className="quick-grid">{[['Property',Building2],['Application form',FilePenLine],['Inspection',ClipboardCheck],['Maintenance',Hammer],['Payment',Receipt],['Document',FilePenLine]].map(([n,I])=><button key={n} onClick={()=>{setQuick(false);if(n==='Property')setAddingProperty(true);else navigate({'Application form':'Applications',Inspection:'Inspections',Maintenance:'Maintenance',Payment:'Finances',Document:'Documents'}[n])}}><I/><span>{n}</span></button>)}</div></div></div>}
     {addingProperty&&<PropertyEditor propertyCount={portfolio.length} ownerId={profile?.id} onClose={()=>setAddingProperty(false)} onSaved={saved=>{setAddingProperty(false);setRefreshKey(x=>x+1);navigate('Properties');notify('Property added',{propertyId:saved.id})}}/>}
+    {fileLeaseEditing&&portfolio.find(p=>p.id===filePropertyId)&&<LeaseEditor property={portfolio.find(p=>p.id===filePropertyId)} ownerId={profile?.id} onClose={()=>setFileLeaseEditing(false)} onSaved={()=>{setFileLeaseEditing(false);setRefreshKey(x=>x+1);notify('Lease details saved')}}/>}
     {toast && <div className="toast" role="status">{toast}</div>}
   </div>
 }

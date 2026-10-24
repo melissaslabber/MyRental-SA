@@ -118,5 +118,23 @@ test('database lifecycle, duplicate delivery, cancellation and member isolation'
  await db.query('delete from billing_refunds where subscription_id=$1',[sub.id])
  await db.query('select public.billing_cancel_local($1,$2,$3)',[sub.id,alice,'Verify original-payment refund amount'])
  assert.equal(Number((await db.query('select amount from billing_refunds where subscription_id=$1',[sub.id])).rows[0].amount),89)
+ await db.exec('alter table leases add column tenant_name text,add column start_date date,add column end_date date,add column monthly_rent numeric,add column deposit_amount numeric')
+ await db.exec(await readFile(new URL('../supabase/property-files.sql',import.meta.url),'utf8'))
+ const leaseId='88888888-8888-4888-8888-888888888888',docId='99999999-9999-4999-8999-999999999999'
+ await db.query('insert into leases(id,owner_id,property_id,tenant_name,start_date,end_date,monthly_rent,deposit_amount) values($1,$2,$3,$4,$5,$6,$7,$8)',[leaseId,alice,prop,'Test tenant','2026-01-01','2026-12-31',10000,15000])
+ await db.query('update leases set start_date=$1,end_date=$2,monthly_rent=11000 where id=$3',['2027-01-01','2027-12-31',leaseId])
+ await db.query('update leases set monthly_rent=11000 where id=$1',[leaseId])
+ await db.exec(`set role authenticated;select set_config('request.jwt.claim.sub','${alice}',false)`)
+ assert.equal((await db.query('select count(*)::integer n from lease_terms_history')).rows[0].n,2)
+ await assert.rejects(()=>db.query('insert into lease_terms_history(owner_id,property_id,snapshot) values($1,$2,$3)',[alice,prop,'{}']))
+ const path=alice+'/'+prop+'/'+docId+'/signed-lease.pdf'
+ await db.query(`insert into property_file_documents(id,owner_id,property_id,section,document_type,title,storage_path,file_name,mime_type,landlord_signed,tenant_signed,signed_on) values($1,$2,$3,'leases','Lease agreement','Signed lease',$4,'lease.pdf','application/pdf',true,true,'2026-01-01')`,[docId,alice,prop,path])
+ assert.equal((await db.query('select count(*)::integer n from property_file_documents')).rows[0].n,1)
+ await assert.rejects(()=>db.query(`update property_file_documents set storage_path='another-owner/file.pdf' where id=$1`,[docId]))
+ await assert.rejects(()=>db.query('update property_file_documents set signed_on=null where id=$1',[docId]))
+ await db.exec(`select set_config('request.jwt.claim.sub','${bob}',false)`)
+ assert.equal((await db.query('select count(*)::integer n from property_file_documents')).rows[0].n,0)
+ assert.equal((await db.query('select count(*)::integer n from lease_terms_history')).rows[0].n,0)
+ await db.exec('reset role')
  }finally{await db.close()}
 })
