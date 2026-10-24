@@ -1,7 +1,8 @@
+import * as PDFLib from 'pdf-lib'
 import {rentalPdf} from '../shared/rental-documents'
 import {deliverBrowserFile} from './browser-files'
 import {isNative} from './native'
-export async function shareRentalPdf(invoice,noticeText=null,mode='download'){const PDFLib=await import('pdf-lib');const bytes=await rentalPdf(invoice,PDFLib,noticeText),name=(noticeText?'Breach-notice-':'Invoice-')+invoice.invoice_number+'.pdf'
+export async function shareRentalPdf(invoice,noticeText=null,mode='download'){const bytes=await rentalPdf(invoice,PDFLib,noticeText),name=(noticeText?'Breach-notice-':'Invoice-')+invoice.invoice_number+'.pdf'
  return savePdfFile(bytes,name,mode)
 }
 export async function savePdfFile(bytes,name,mode='download'){

@@ -1,3 +1,4 @@
+import * as PDFLib from 'pdf-lib'
 import {applicationPdf} from './application-pdf'
 import {savePdfFile} from './rental-sharing'
 import { useMemo, useState } from 'react'
@@ -22,7 +23,7 @@ export function ApplicationModule({properties,notify,showGuide=true}){
   const [form,setForm]=useState(initial);const set=(k,v)=>{const next={...form,[k]:v};setForm(next);localStorage.setItem(draftKey,JSON.stringify(next))}
   const changeProperty=id=>{setPropertyId(id);const p=properties.find(x=>x.id===id);const key=`myrental_application_form_${id}`;let saved={};try{saved=JSON.parse(localStorage.getItem(key)||'{}')}catch{}setForm({...{occupation_date:'',rent:p?.activeLease?.monthly_rent||p?.monthly_rent||'',deposit:p?.activeLease?.deposit_amount||p?.deposit_amount||'',selectedExtras:[],otherExtra:'',notes:''},...saved})}
   const [pdfBusy,setPdfBusy]=useState(false)
-  const download=async()=>{setPdfBusy(true);try{await savePdfFile(await applicationPdf(property,form,await import('pdf-lib')),'MyRental-SA-rental-application.pdf')}catch(e){notify(e.message||'Could not download the application PDF.')}finally{setPdfBusy(false)}}
+  const download=async()=>{setPdfBusy(true);try{await savePdfFile(await applicationPdf(property,form,PDFLib),'MyRental-SA-rental-application.pdf')}catch(e){notify(e.message||'Could not download the application PDF.')}finally{setPdfBusy(false)}}
   const toggleExtra=name=>set('selectedExtras',form.selectedExtras.includes(name)?form.selectedExtras.filter(x=>x!==name):[...form.selectedExtras,name])
   const copyEmail=async()=>{const text=`Rental application: ${property?.name||'Property'}\n\nPlease complete the attached application form for ${property?.address||''}, ${property?.suburb||''}.\nProposed occupation: ${form.occupation_date||'To be agreed'}\nMonthly rental: R${Number(form.rent||0).toLocaleString('en-ZA')}\nDeposit: R${Number(form.deposit||0).toLocaleString('en-ZA')}\nExtras payable by tenant: ${form.selectedExtras.join(', ')||'None specified'}\n\nPlease return the completed form and requested supporting documents. Your information will be used to assess the rental application and must be handled in accordance with applicable privacy requirements.`;await navigator.clipboard.writeText(text);notify('Email wording copied')}
   if(!properties.length)return <section><div className="page-intro"><div><span className="eyebrow">APPLICATION FORM</span><h2>Rental applications</h2><p>Add a property first so the application can be customised.</p></div></div></section>
