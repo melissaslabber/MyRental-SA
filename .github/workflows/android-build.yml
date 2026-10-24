@@ -1,5 +1,15 @@
 name: MyRental SA Android build
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'android/**'
+      - 'src/**'
+      - 'shared/**'
+      - 'public/**'
+      - 'package*.json'
+      - 'capacitor.config.json'
+      - '.github/workflows/android-build.yml'
   workflow_dispatch:
     inputs:
       build_type:
@@ -33,7 +43,7 @@ jobs:
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-36' 'build-tools;36.0.0' >/dev/null
           chmod +x android/gradlew
       - name: Build debug APK
-        if: inputs.build_type == 'debug'
+        if: github.event_name == 'push' || inputs.build_type == 'debug'
         working-directory: android
         run: ./gradlew assembleDebug lintDebug --no-daemon
       - name: Build signed Play Store bundle
@@ -55,7 +65,7 @@ jobs:
           ./gradlew bundleRelease --no-daemon
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: MyRental-SA-${{ inputs.build_type }}
+          name: MyRental-SA-${{ inputs.build_type || 'debug' }}
           path: |
             android/app/build/outputs/apk/debug/*.apk
             android/app/build/outputs/bundle/release/*.aab
