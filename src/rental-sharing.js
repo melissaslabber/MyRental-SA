@@ -1,7 +1,8 @@
 import {rentalPdf} from '../shared/rental-documents'
+import {deliverBrowserFile} from './browser-files'
 import {isNative} from './native'
-export async function shareRentalPdf(invoice,noticeText=null){const PDFLib=await import('pdf-lib');const bytes=await rentalPdf(invoice,PDFLib,noticeText),name=(noticeText?'Breach-notice-':'Invoice-')+invoice.invoice_number+'.pdf'
+export async function shareRentalPdf(invoice,noticeText=null,mode='download'){const PDFLib=await import('pdf-lib');const bytes=await rentalPdf(invoice,PDFLib,noticeText),name=(noticeText?'Breach-notice-':'Invoice-')+invoice.invoice_number+'.pdf'
  if(isNative()){const {Filesystem,Directory}=await import('@capacitor/filesystem');const {Share}=await import('@capacitor/share');let binary='';for(const b of bytes)binary+=String.fromCharCode(b);const result=await Filesystem.writeFile({path:name,data:btoa(binary),directory:Directory.Cache});await Share.share({title:name,url:result.uri,dialogTitle:'Share rental document'});return}
- const file=new File([bytes],name,{type:'application/pdf'});if(navigator.canShare?.({files:[file]})){await navigator.share({files:[file],title:name});return}const link=document.createElement('a');link.href=URL.createObjectURL(file);link.download=name;link.click();setTimeout(()=>URL.revokeObjectURL(link.href),1000)
+ return deliverBrowserFile(new File([bytes],name,{type:'application/pdf'}),{mode})
 }
 export async function shareTenantText(invoice,text,channel){if(channel==='email'){window.location.href=`mailto:${encodeURIComponent(invoice.tenant_details?.email||'')}?subject=${encodeURIComponent('MyRental SA · '+invoice.invoice_number)}&body=${encodeURIComponent(text)}`;return}if(channel==='whatsapp'){window.open('https://wa.me/?text='+encodeURIComponent(text),'_blank','noopener,noreferrer');return}await navigator.clipboard.writeText(text)}
