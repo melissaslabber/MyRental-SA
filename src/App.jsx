@@ -13,6 +13,7 @@ import { Admin } from './Admin'
 import {PropertyFinance} from './PropertyFinance'
 import {Invoices} from './Invoices'
 import {isNative} from './native'
+import {leaseExpiryAlerts} from './lease-alerts'
 import {DeletionRequest} from './DeletionRequest'
 import { MembershipBoundary, MembershipPanel } from './Membership'
 import {
@@ -124,6 +125,10 @@ export function Dashboard({ user, profile, onSignOut, membership, refreshMembers
   const [attention, setAttention] = useState([])
   const [attentionError,setAttentionError]=useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
+  const [alertClock,setAlertClock] = useState(()=>new Date())
+  useEffect(()=>{const refresh=()=>setAlertClock(new Date());const timer=setInterval(refresh,60000);window.addEventListener('focus',refresh);return ()=>{clearInterval(timer);window.removeEventListener('focus',refresh)}},[])
+  const leaseTasks=leaseExpiryAlerts(portfolio,alertClock).map(alert=>({icon:CalendarDays,title:alert.daysLeft<0?'Lease expired — follow up':`Lease expires in ${alert.daysLeft} ${alert.daysLeft===1?'day':'days'}`,detail:`${alert.propertyName} · ${alert.tenantName} · Ends ${new Intl.DateTimeFormat('en-ZA',{day:'numeric',month:'short',year:'numeric'}).format(new Date(`${alert.endDate}T12:00:00`))}. Confirm whether the tenant wants to renew or move out. Record the agreed outcome and update the lease details.`,level:alert.daysLeft<=30?'urgent':'high',page:'Properties',propertyId:alert.propertyId}))
+  const allAttention=[...leaseTasks,...attention]
   const today = useMemo(() => new Intl.DateTimeFormat('en-ZA', { weekday:'long', day:'numeric', month:'long' }).format(new Date()), [])
   const notify = (message) => { setToast(message); setTimeout(() => setToast(''), 2600) }
 
@@ -165,7 +170,7 @@ export function Dashboard({ user, profile, onSignOut, membership, refreshMembers
       const now=new Date();now.setHours(0,0,0,0);const soon=new Date(now);soon.setDate(soon.getDate()+30)
       const recordItems=(records.data||[]).filter(r=>{const d=new Date(`${r.due_date}T12:00:00`);return d<=soon&&!['Completed','Declined','Refunded','Reconciled','Received'].includes(r.status)}).map(r=>{const d=new Date(`${r.due_date}T12:00:00`);const overdue=d<now;return {icon:CalendarDays,title:r.title,detail:`${r.properties?.name||'Rental record'} · ${overdue?'Overdue':`Due ${new Intl.DateTimeFormat('en-ZA',{day:'numeric',month:'short'}).format(d)}`}`,level:overdue?'urgent':'high',page:r.record_type==='application'?'Applications':r.record_type==='inspection'?'Inspections':r.record_type==='finance'?'Finances':r.record_type==='renewal'?'Renewals':'Documents'}})
       const maintenanceItems=(maintenance.data||[]).filter(m=>m.urgent).map(m=>({icon:Hammer,title:m.issue,detail:`${m.properties?.name||'Property'} · ${m.status}`,level:'urgent',page:'Maintenance'}))
-      setAttention([...maintenanceItems,...recordItems].slice(0,8))
+      setAttention([...maintenanceItems,...recordItems])
     })
   },[profile?.id,refreshKey,page])
 
@@ -185,10 +190,10 @@ export function Dashboard({ user, profile, onSignOut, membership, refreshMembers
 
     <a className="skip-link" href="#main-content">Skip to content</a>
     <main id="main-content">
-      <header><div className="mobile-brand"><Brand/></div><div><p>{today}</p><h1>{page==='Today'?'Your rental overview':page==='Rent'?'Rental journey':page==='Finances'?'Income & expenses':page}</h1></div><button className="icon-btn" aria-label="View items needing attention" onClick={()=>{navigate('Today');requestAnimationFrame(()=>document.getElementById('attention')?.scrollIntoView({behavior:'smooth'}))}}><Bell size={21}/>{attention.length>0&&<i/>}</button></header>
+      <header><div className="mobile-brand"><Brand/></div><div><p>{today}</p><h1>{page==='Today'?'Your rental overview':page==='Rent'?'Rental journey':page==='Finances'?'Income & expenses':page}</h1></div><button className="icon-btn" aria-label="View items needing attention" onClick={()=>{navigate('Today');requestAnimationFrame(()=>document.getElementById('attention')?.scrollIntoView({behavior:'smooth'}))}}><Bell size={21}/>{allAttention.length>0&&<i/>}</button></header>
       {dataError&&<div className="data-error" role="alert"><span>{dataError}</span><button className="secondary" onClick={()=>setRefreshKey(x=>x+1)}>Try again</button></div>}
       {dataLoading&&<div className="data-loading" role="status">Loading your portfolio…</div>}
-      {page === 'Today' && <Today setPage={navigate} setQuick={setQuick} properties={portfolio} tasks={attention} openProperty={openProperty} addProperty={()=>setAddingProperty(true)} loading={dataLoading} dataError={dataError} attentionError={attentionError}/>}
+      {page === 'Today' && <Today setPage={navigate} setQuick={setQuick} properties={portfolio} tasks={allAttention} openProperty={openProperty} addProperty={()=>setAddingProperty(true)} loading={dataLoading} dataError={dataError} attentionError={attentionError}/>}
       {page === 'Properties' && <Properties notify={notify} properties={portfolio} ownerId={profile?.id} onRefresh={()=>setRefreshKey(x=>x+1)}/>}
       {page === 'Rent' && <Rent setPage={navigate}/>}
       {page === 'Maintenance' && <><MaintenanceAdvice/><LiveMaintenance notify={notify} ownerId={profile?.id} properties={portfolio}/></>}
@@ -229,7 +234,7 @@ function Today({setPage,setQuick,properties,tasks,openProperty,addProperty,loadi
         <button onClick={()=>setPage('Finances')}><WalletCards size={20}/><span><small>Monthly rent on file</small><strong>{loading||dataError?'—':`R${rent.toLocaleString('en-ZA')}`}</strong></span><ChevronRight size={16}/></button>
       </div>
       <div className="section-title" id="attention"><div><span className="eyebrow">YOUR NEXT ACTIONS</span><h2>Needs attention</h2></div><span className="count">{tasks.length}</span></div>
-      <div className="task-list">{tasks.length?tasks.map(({icon:Icon,title,detail,level,page},i)=><button className="task" key={`${title}-${i}`} onClick={()=>setPage(page)}><span className={`task-icon ${level}`}><Icon size={19}/></span><div><b>{title}</b><small>{detail}</small></div><span className={`tag ${level}`}>{level}</span><ChevronRight size={18}/></button>):<div className="task quiet-state"><span className="task-icon normal"><ClipboardCheck size={19}/></span><div><b>{loading?'Checking your portfolio…':dataError||attentionError?'Actions unavailable':'No upcoming actions to show'}</b><small>{dataError||attentionError?'Refresh the page to check your latest records.':'Saved reminders, deadlines and urgent repairs appear here.'}</small></div></div>}</div>
+      <div className="task-list">{tasks.length?tasks.map(({icon:Icon,title,detail,level,page,propertyId},i)=><button className="task" key={`${title}-${i}`} onClick={()=>propertyId?openProperty(properties.find(p=>p.id===propertyId)):setPage(page)}><span className={`task-icon ${level}`}><Icon size={19}/></span><div><b>{title}</b><small>{detail}</small></div><span className={`tag ${level}`}>{level}</span><ChevronRight size={18}/></button>):<div className="task quiet-state"><span className="task-icon normal"><ClipboardCheck size={19}/></span><div><b>{loading?'Checking your portfolio…':dataError||attentionError?'Actions unavailable':'No upcoming actions to show'}</b><small>{dataError||attentionError?'Refresh the page to check your latest records.':'Saved reminders, deadlines and urgent repairs appear here.'}</small></div></div>}</div>
       <div className="section-title spaced"><div><span className="eyebrow">A HOME FOR EVERY DETAIL</span><h2>Your properties</h2></div><button className="text-btn" onClick={()=>setPage('Properties')}>View all <ChevronRight size={16}/></button></div>
       {properties.length?<div className="property-row">{properties.map(p=><button className="property-card property-preview" key={p.id} onClick={()=>openProperty(p)}><div className={`property-image ${p.tone}`}><Building2 size={32}/><span>{p.status}</span></div><div className="property-body"><small>{(p.area||'South Africa').toUpperCase()}</small><h3>{p.name}</h3><p>{p.tenant}</p><div><b>{p.rent}</b>{p.rent!=='Not set'&&<span>per month</span>}<ChevronRight size={18}/></div></div></button>)}</div>:!loading&&!dataError&&<div className="empty-card"><Building2/><h3>Your portfolio starts here</h3><p>Add a property to organise its tenant, lease and rental records.</p><button onClick={addProperty}><Plus size={17}/> Add your first property</button></div>}
     </section>
