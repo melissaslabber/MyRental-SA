@@ -1,0 +1,6 @@
+export function money(value){if(typeof value!=='string'||!/^[-]?\d+(\.\d{1,2})?$/.test(value))throw new Error('Invalid amount');return Number(value)}
+export function periodEnd(value){const d=new Date(new Date(value).getTime()+7200000);if(!Number.isFinite(d.getTime()))throw new Error('Invalid date');const day=d.getUTCDate();d.setUTCDate(1);d.setUTCMonth(d.getUTCMonth()+1);d.setUTCDate(Math.min(day,new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+1,0)).getUTCDate()));return new Date(d.getTime()-7200000).toISOString()}
+export function publicSubscription(s){if(!s)return null;const {id,status,amount,first_paid_at,last_paid_at,paid_through,cancel_requested_at,cancelled_at,cancellation_reason}=s;return {id,status,amount:Number(amount),first_paid_at,last_paid_at,paid_through,cancel_requested_at,cancelled_at,cancellation_reason}}
+export function validNotification(f,merchant){return f.merchant_id===merchant&&/^MRSA-[a-f\d-]{36}$/.test(f.m_payment_id||'')&&/^\d{1,30}$/.test(f.pf_payment_id||'')&&['COMPLETE','FAILED','CANCELLED'].includes(f.payment_status)&&/^\d+\.\d{2}$/.test(f.amount_gross||'')&&/^[a-f\d]{32}$/.test(f.signature||'')}
+
+export function nextBillingDate(value){return new Date(periodEnd(value)).toLocaleDateString('en-CA',{timeZone:'Africa/Johannesburg'})}

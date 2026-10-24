@@ -9,13 +9,19 @@ import { DocumentsModule } from './Documents'
 import { RenewalsModule } from './Renewals'
 import { LearnModule } from './Learn'
 import { MaintenanceAdvice } from './MaintenanceAdvice'
+import { Admin } from './Admin'
+import {PropertyFinance} from './PropertyFinance'
+import {Invoices} from './Invoices'
+import {isNative} from './native'
+import {DeletionRequest} from './DeletionRequest'
+import { MembershipBoundary, MembershipPanel } from './Membership'
 import {
   AlertTriangle, Bell, BookOpen, Building2, CalendarDays, ChevronRight,
-  ClipboardCheck, FilePenLine, Hammer, Home, KeyRound, LayoutGrid,
+  ClipboardCheck, CreditCard, FilePenLine, Hammer, Home, KeyRound, LayoutGrid,
   Link2, Menu, Plus, Receipt, Search, ShieldCheck, UserRound, WalletCards, X
 } from 'lucide-react'
 
-const pages = ['Today','Properties','Rent','Maintenance','More','Applications','Inspections','Documents','Renewals','Finances','Learn','Legal','Professional help','Settings']
+const pages = ['Today','Properties','Rent','Maintenance','More','Applications','Inspections','Documents','Renewals','Finances','Learn','Legal','Professional help','Settings','Admin','Membership','Invoices']
 
 const flows = [
   { icon: Search, title: 'Advertise & find a tenant', text: 'Prepare, advertise and screen fairly.' },
@@ -72,9 +78,13 @@ function App() {
   if(startupError)return <div className="auth-shell"><div className="auth-card loading-card"><Brand/><h2>Let’s try that again</h2><p role="alert">{startupError}</p><button className="auth-submit" onClick={()=>window.location.reload()}>Reload account</button></div></div>
   if (loading || session === undefined) return <LoadingScreen />
   if (!session) return <AuthScreen />
+  if(window.location.pathname==='/request-deletion')return <div className="membership-shell"><DeletionRequest/><button className="secondary" onClick={()=>supabase.auth.signOut()}>Sign out</button></div>
   if (!legalAccepted) return <LegalAcceptance user={session.user} onAccepted={()=>setLegalAccepted(true)}/>
-  if (!profile?.onboarding_complete || !hasProperty) return <Onboarding user={session.user} profile={profile} onComplete={(nextProfile)=>{setProfile(nextProfile);setHasProperty(true)}} />
-  return <Dashboard user={session.user} profile={profile} onSignOut={()=>supabase.auth.signOut()} />
+  return <MembershipBoundary user={session.user}>{(membership,refreshMembership)=>
+    !profile?.onboarding_complete || !hasProperty
+      ? <Onboarding user={session.user} profile={profile} onComplete={(nextProfile)=>{setProfile(nextProfile);setHasProperty(true)}} />
+      : <Dashboard user={session.user} profile={profile} membership={membership} refreshMembership={refreshMembership} onSignOut={()=>supabase.auth.signOut()} />
+  }</MembershipBoundary>
 }
 
 function LoadingScreen() { return <div className="auth-shell"><div className="auth-card loading-card"><Brand/><div className="spinner"/><p>Preparing your rental dashboard…</p></div></div> }
@@ -87,7 +97,7 @@ function AuthScreen() {
     setBusy(false)
   }
   const resetPassword=async()=>{if(!form.email){setMessage('Enter your email address first.');return}setBusy(true);setMessage('');const {error}=await supabase.auth.resetPasswordForEmail(form.email,{redirectTo:window.location.origin});setBusy(false);setMessage(error?error.message:'Password-reset email sent. Check your inbox.')}
-  return <div className="auth-shell"><section className="auth-brand-panel"><Brand/><div><span className="eyebrow">PRIVATE LANDLORDS · SOUTH AFRICA</span><h1>Rent out with confidence.</h1><p>Every property, deadline and document—guided from advertising to deposit reconciliation.</p></div><small>Guidance and organisation for responsible landlords.</small></section><section className="auth-form-panel"><div className="auth-card"><span className="eyebrow">WELCOME TO MYRENTAL SA</span><h2>{mode==='login'?'Sign in to your account':'Create your landlord account'}</h2><p>{mode==='login'?'Continue managing your rentals.':'Start with your first property in a few guided steps.'}</p><form onSubmit={submit}>{mode==='signup'&&<label>Full name<input required value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="Your full name"/></label>}<label>Email address<input required type="email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})} placeholder="name@example.com"/></label><label>Password<input required minLength="8" type="password" value={form.password} onChange={e=>setForm({...form,password:e.target.value})} placeholder="At least 8 characters"/></label>{mode==='login'&&<button type="button" className="forgot-link" onClick={resetPassword}>Forgot password?</button>}{message&&<div className="auth-message">{message}</div>}<button className="auth-submit" disabled={busy}>{busy?'Please wait…':mode==='login'?'Sign in':'Create account'}</button></form><button className="auth-switch" onClick={()=>{setMode(mode==='login'?'signup':'login');setMessage('')}}>{mode==='login'?'New to MyRental SA? Create an account':'Already registered? Sign in'}</button></div></section></div>
+  return <div className="auth-shell"><section className="auth-brand-panel"><Brand/><div><span className="eyebrow">PRIVATE LANDLORDS · SOUTH AFRICA</span><h1>Rent out with confidence.</h1><p>Every property, deadline and document—guided from advertising to deposit reconciliation.</p></div><small>Guidance and organisation for responsible landlords.</small></section><section className="auth-form-panel"><div className="auth-card"><span className="eyebrow">WELCOME TO MYRENTAL SA</span><h2>{mode==='login'?'Sign in to your account':'Create your landlord account'}</h2><p>{mode==='login'?'Continue managing your rentals.':'Create your account, confirm your email, then subscribe securely through PayFast. R89 per month when subscriptions open.'}</p><form onSubmit={submit}>{mode==='signup'&&!isNative()&&<label>Full name<input required value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="Your full name"/></label>}<label>Email address<input required type="email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})} placeholder="name@example.com"/></label><label>Password<input required minLength="8" type="password" value={form.password} onChange={e=>setForm({...form,password:e.target.value})} placeholder="At least 8 characters"/></label>{mode==='login'&&<button type="button" className="forgot-link" onClick={resetPassword}>Forgot password?</button>}{message&&<div className="auth-message">{message}</div>}<button className="auth-submit" disabled={busy}>{busy?'Please wait…':mode==='login'?'Sign in':'Create account'}</button></form>{isNative()&&<p className="native-signin-note">Sign in with your existing MyRental SA account.</p>}<a className="auth-policy" href="/privacy.html">Privacy policy</a> · <a className="auth-policy" href="/delete-account.html">Account deletion</a><button className="auth-switch" hidden={isNative()} onClick={()=>{setMode(mode==='login'?'signup':'login');setMessage('')}}>{mode==='login'?'New to MyRental SA? Create an account':'Already registered? Sign in'}</button></div></section></div>
 }
 
 function Onboarding({user,profile,onComplete}) {
@@ -101,8 +111,8 @@ function Onboarding({user,profile,onComplete}) {
   return <div className="onboarding-shell"><header className="onboarding-head"><Brand/><button onClick={()=>supabase.auth.signOut()}>Sign out</button></header><main className="onboarding-main"><div className="progress"><span style={{width:`${step*33.33}%`}}/></div><span className="eyebrow">STEP {step} OF 3</span>{step===1&&<div className="onboarding-step"><h1>Welcome to MyRental SA</h1><p>Let’s personalise your account before adding your first rental property.</p><label>Full name<input value={data.name} onChange={e=>setData({...data,name:e.target.value})}/></label><label>Mobile number<input type="tel" value={data.phone} onChange={e=>setData({...data,phone:e.target.value})} placeholder="e.g. 082 123 4567"/></label></div>}{step===2&&<div className="onboarding-step"><h1>Add your first property</h1><p>This becomes the property’s secure digital file.</p><label>Property name<input value={data.propertyName} onChange={e=>setData({...data,propertyName:e.target.value})} placeholder="e.g. 14 Protea Lane"/></label><label>Street address<input value={data.address} onChange={e=>setData({...data,address:e.target.value})}/></label><div className="field-row"><label>Suburb / town<input value={data.suburb} onChange={e=>setData({...data,suburb:e.target.value})}/></label><label>Province<select value={data.province} onChange={e=>setData({...data,province:e.target.value})}>{['Western Cape','Eastern Cape','Northern Cape','Free State','Gauteng','KwaZulu-Natal','Limpopo','Mpumalanga','North West'].map(x=><option key={x}>{x}</option>)}</select></label></div></div>}{step===3&&<div className="onboarding-step"><h1>What is its current status?</h1><p>We’ll create the correct starting checklist for you.</p><div className="choice-grid">{[['occupied','It has a tenant','Add the current lease and tenant'],['vacant','It is vacant','Prepare and advertise it'],['new','I just bought it','Set up the rental correctly']].map(([value,title,text])=><button className={data.status===value?'selected':''} onClick={()=>setData({...data,status:value})} key={value}><Building2/><b>{title}</b><small>{text}</small></button>)}</div></div>}{error&&<div className="auth-message">{error}</div>}<div className="onboarding-actions">{step>1&&<button className="secondary" onClick={()=>setStep(step-1)}>Back</button>}<button className="primary" disabled={busy||!data.name||(step===2&&(!data.propertyName||!data.address||!data.suburb))} onClick={()=>step<3?setStep(step+1):finish()}>{busy?'Saving…':step<3?'Continue':'Open my dashboard'} <ChevronRight size={17}/></button></div></main></div>
 }
 
-export function Dashboard({ user, profile, onSignOut, demo=false }) {
-  const [page, setPage] = useState(()=>{const saved=localStorage.getItem('myrental_last_page');return pages.includes(saved)?saved:'Today'})
+export function Dashboard({ user, profile, onSignOut, membership, refreshMembership, demo=false }) {
+  const [page, setPage] = useState(()=>{const saved=window.location.pathname==='/admin'?'Admin':localStorage.getItem('myrental_last_page');return pages.includes(saved)?saved:'Today'})
   const [quick, setQuick] = useState(false)
   const [addingProperty,setAddingProperty] = useState(false)
   const [dataError,setDataError] = useState('')
@@ -166,30 +176,35 @@ export function Dashboard({ user, profile, onSignOut, demo=false }) {
   return <div className="app-shell">
     <aside className="sidebar">
       <Brand />
-      <nav aria-label="Main navigation"><span className="nav-label">YOUR WORKSPACE</span>{[...nav.slice(0,4),['Maintenance',Hammer],['Inspections',ClipboardCheck],['Documents',FilePenLine],['Renewals',CalendarDays]].map(([name,Icon])=><button aria-current={page===name?'page':undefined} className={page===name?'active':''} onClick={()=>navigate(name)} key={name}><Icon size={19}/><span>{name==='Today'?'Overview':name==='Finances'?'Rent & deposits':name}</span></button>)}<span className="nav-label">HELP & GUIDANCE</span>{[['Rent',KeyRound],['Learn',BookOpen],['More',Menu]].map(([name,Icon])=><button aria-current={page===name?'page':undefined} className={page===name?'active':''} onClick={()=>navigate(name)} key={name}><Icon size={19}/><span>{name==='Rent'?'Rental journey':name==='More'?'All tools & settings':name}</span></button>)}</nav>
+      <nav aria-label="Main navigation"><span className="nav-label">YOUR WORKSPACE</span>{[...nav.slice(0,4),['Invoices',Receipt],['Maintenance',Hammer],['Inspections',ClipboardCheck],['Documents',FilePenLine],['Renewals',CalendarDays]].map(([name,Icon])=><button aria-current={page===name?'page':undefined} className={page===name?'active':''} onClick={()=>navigate(name)} key={name}><Icon size={19}/><span>{name==='Today'?'Overview':name==='Finances'?'Income & expenses':name}</span></button>)}<span className="nav-label">HELP & GUIDANCE</span>{[['Rent',KeyRound],['Learn',BookOpen],['More',Menu]].map(([name,Icon])=><button aria-current={page===name?'page':undefined} className={page===name?'active':''} onClick={()=>navigate(name)} key={name}><Icon size={19}/><span>{name==='Rent'?'Rental journey':name==='More'?'All tools & settings':name}</span></button>)}</nav>
+      {membership?.isAdmin&&<button className="admin-entry" onClick={()=>navigate('Admin')}><ShieldCheck size={18}/> Admin dashboard</button>}
+      <button className="admin-entry" onClick={()=>navigate('Membership')}><CreditCard size={18}/> Membership</button>
       <div className="legal-mini"><ShieldCheck size={18}/><p><b>Guidance you can trust</b><br/>Important legal matters are clearly flagged for professional review.</p></div>
       <button className="profile" onClick={onSignOut}><span>{(profile?.full_name||'Landlord').split(' ').map(x=>x[0]).slice(0,2).join('').toUpperCase()}</span><div><b>{profile?.full_name?.split(' ')[0]||'Landlord'}</b><small>{demo?'Demo landlord':'Sign out'}</small></div></button>
     </aside>
 
     <a className="skip-link" href="#main-content">Skip to content</a>
     <main id="main-content">
-      <header><div className="mobile-brand"><Brand/></div><div><p>{today}</p><h1>{page==='Today'?'Your rental overview':page==='Rent'?'Rental journey':page==='Finances'?'Rent & deposits':page}</h1></div><button className="icon-btn" aria-label="View items needing attention" onClick={()=>{navigate('Today');requestAnimationFrame(()=>document.getElementById('attention')?.scrollIntoView({behavior:'smooth'}))}}><Bell size={21}/>{attention.length>0&&<i/>}</button></header>
+      <header><div className="mobile-brand"><Brand/></div><div><p>{today}</p><h1>{page==='Today'?'Your rental overview':page==='Rent'?'Rental journey':page==='Finances'?'Income & expenses':page}</h1></div><button className="icon-btn" aria-label="View items needing attention" onClick={()=>{navigate('Today');requestAnimationFrame(()=>document.getElementById('attention')?.scrollIntoView({behavior:'smooth'}))}}><Bell size={21}/>{attention.length>0&&<i/>}</button></header>
       {dataError&&<div className="data-error" role="alert"><span>{dataError}</span><button className="secondary" onClick={()=>setRefreshKey(x=>x+1)}>Try again</button></div>}
       {dataLoading&&<div className="data-loading" role="status">Loading your portfolio…</div>}
       {page === 'Today' && <Today setPage={navigate} setQuick={setQuick} properties={portfolio} tasks={attention} openProperty={openProperty} addProperty={()=>setAddingProperty(true)} loading={dataLoading} dataError={dataError} attentionError={attentionError}/>}
       {page === 'Properties' && <Properties notify={notify} properties={portfolio} ownerId={profile?.id} onRefresh={()=>setRefreshKey(x=>x+1)}/>}
       {page === 'Rent' && <Rent setPage={navigate}/>}
       {page === 'Maintenance' && <><MaintenanceAdvice/><LiveMaintenance notify={notify} ownerId={profile?.id} properties={portfolio}/></>}
-      {page === 'More' && <More notify={notify} setPage={navigate}/>}
+      {page === 'More' && <More notify={notify} setPage={navigate} isAdmin={membership?.isAdmin}/>}
       {page === 'Applications' && <ApplicationModule properties={portfolio} notify={notify}/>}
       {page === 'Inspections' && <InspectionModule properties={portfolio} ownerId={profile?.id} notify={notify}/>}
       {page === 'Documents' && <DocumentsModule properties={portfolio} notify={notify}/>}
       {page === 'Renewals' && <RenewalsModule properties={portfolio} notify={notify}/>}
-      {page === 'Finances' && <RentalModule name={page} ownerId={profile?.id} properties={portfolio} notify={notify}/>}
+      {page === 'Invoices' && <Invoices ownerId={profile?.id} profile={profile} properties={portfolio} notify={notify}/>}
+      {page === 'Finances' && <PropertyFinance ownerId={profile?.id} properties={portfolio} notify={notify}/>}
+      {page === 'Admin' && (membership?.isAdmin?<Admin/>:<p>Administrator access required.</p>)}
+      {page === 'Membership' && membership && <MembershipPanel membership={membership} refresh={refreshMembership}/>}
       {page === 'Learn' && <LearnModule/>}
       {page === 'Legal' && <LegalPage/>}
       {page === 'Professional help' && <ProfessionalHelp/>}
-      {page === 'Settings' && <SettingsModule user={user} profile={profile} onProfileUpdated={()=>window.location.reload()}/>}
+      {page === 'Settings' && <><SettingsModule user={user} profile={profile} onProfileUpdated={()=>window.location.reload()}/><DeletionRequest/></>}
     </main>
 
     <nav className="bottom-nav" aria-label="Mobile navigation">{nav.map(([name, Icon]) => <button className={page===name?'active':''} onClick={()=>navigate(name)} aria-current={page===name?'page':undefined} key={name}><Icon size={20}/><span>{name==='Today'?'Overview':name==='Finances'?'Money':name}</span></button>)}</nav>
@@ -264,6 +279,6 @@ function Rent({setPage}) { return <section><div className="page-intro"><div><spa
 
 function Maintenance({notify}) { return <section><div className="page-intro"><div><span className="eyebrow">MAINTENANCE</span><h2>Issues and repairs</h2><p>Keep quotes, responsibility, follow-ups and proof in one timeline.</p></div><button className="primary" onClick={()=>notify('Maintenance form will open here')}><Plus size={18}/> Log issue</button></div><div className="empty-card"><ClipboardCheck/><h3>No open maintenance issues</h3><p>New tenant reports and issues you log will appear here.</p><button onClick={()=>notify('Secure link copied')}>Create tenant reporting link</button></div></section> }
 
-function More({notify,setPage}) { const items=[[UserRound,'Applications','Create a property-specific form to email'],[ClipboardCheck,'Inspections','Ingoing, interim and outgoing'],[FilePenLine,'Documents','Leases, addendums and notices'],[CalendarDays,'Renewals','Renewals and term changes'],[WalletCards,'Finances','Rent, deposits and reconciliation'],[BookOpen,'Learn','Plain-language landlord guidance'],[Building2,'Professional help','Self-manage or appoint an agent'],[ShieldCheck,'Legal','Terms, disclaimer and privacy'],[ShieldCheck,'Settings','Account, password and security']]; return <section><div className="page-intro"><div><span className="eyebrow">MYRENTAL SA</span><h2>Tools and guidance</h2><p>Everything else you need to manage your rental properly.</p></div></div><div className="more-list">{items.map(([I,title,text])=><button key={title} onClick={()=>setPage(title)}><span><I/></span><div><b>{title}</b><small>{text}</small></div><ChevronRight/></button>)}</div><div className="disclaimer"><AlertTriangle/><div><b>Legal guidance, not legal advice</b><p>MyRental SA provides guided workflows and educational information. Serious breaches, evictions and unusual circumstances should be reviewed by a qualified South African property attorney.</p></div></div></section> }
+function More({notify,setPage,isAdmin}) { const items=[...(isAdmin?[[ShieldCheck,'Admin','Members, transactions, subscriptions and refunds']]:[]),[Receipt,'Invoices','Monthly invoices, rent received and arrears guidance'],[CreditCard,'Membership','Subscription, payment status and cancellation'],[UserRound,'Applications','Create a property-specific form to email'],[ClipboardCheck,'Inspections','Ingoing, interim and outgoing'],[FilePenLine,'Documents','Leases, addendums and notices'],[CalendarDays,'Renewals','Renewals and term changes'],[WalletCards,'Finances','Income, expenses, bills and annual reports'],[BookOpen,'Learn','Plain-language landlord guidance'],[Building2,'Professional help','Self-manage or appoint an agent'],[ShieldCheck,'Legal','Terms, disclaimer and privacy'],[ShieldCheck,'Settings','Account, password and security']]; return <section><div className="page-intro"><div><span className="eyebrow">MYRENTAL SA</span><h2>Tools and guidance</h2><p>Everything else you need to manage your rental properly.</p></div></div><div className="more-list">{items.map(([I,title,text])=><button key={title} onClick={()=>setPage(title)}><span><I/></span><div><b>{title}</b><small>{text}</small></div><ChevronRight/></button>)}</div><div className="disclaimer"><AlertTriangle/><div><b>Legal guidance, not legal advice</b><p>MyRental SA provides guided workflows and educational information. Serious breaches, evictions and unusual circumstances should be reviewed by a qualified South African property attorney.</p></div></div></section> }
 
 export default App

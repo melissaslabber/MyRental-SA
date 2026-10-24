@@ -1,6 +1,8 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
+import {setupNative} from './native'
+setupNative()
 import { DialogAccessibility } from './DialogAccessibility'
 import './styles.css'
 import './mobile-fix.css'
@@ -22,3 +24,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
 
 
 import './experience.css'
+
+import './membership.css'
+
+import './finance.css'

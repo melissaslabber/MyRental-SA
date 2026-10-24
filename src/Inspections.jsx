@@ -1,3 +1,4 @@
+import {createId} from './ids'
 import { useEffect, useState } from 'react'
 import { supabase } from './supabase'
 import { AlertTriangle, Camera, FileDown, ImagePlus, Info, Loader2, Plus, Save, ShieldCheck, Trash2, X } from 'lucide-react'
@@ -20,9 +21,9 @@ const GUIDES={
   interim:{title:'Interim inspection',intro:'Arrange reasonable access, respect privacy and compare condition against the ingoing report. Focus on maintenance and developing deterioration.'},
   outgoing:{title:'Outgoing inspection',intro:'Arrange the joint inspection at a mutually convenient time within the three days before lease expiry and compare directly against the ingoing report.'}
 }
-const makeItem=name=>({id:crypto.randomUUID(),name,condition:'Not checked',notes:''})
-const makeArea=(type,name)=>({id:crypto.randomUUID(),type,name:name||AREA_TYPES[type].label,items:AREA_TYPES[type].items.map(makeItem),notes:'',action:'',images:[]})
-const blankForm=(property,type)=>({id:crypto.randomUUID(),date:'',tenant:property?.activeLease?.tenant_name||'',type,areas:START_AREAS.map(([t,n])=>makeArea(t,n)),landlordNotes:'',tenantNotes:'',status:'draft'})
+const makeItem=name=>({id:createId(),name,condition:'Not checked',notes:''})
+const makeArea=(type,name)=>({id:createId(),type,name:name||AREA_TYPES[type].label,items:AREA_TYPES[type].items.map(makeItem),notes:'',action:'',images:[]})
+const blankForm=(property,type)=>({id:createId(),date:'',tenant:property?.activeLease?.tenant_name||'',type,areas:START_AREAS.map(([t,n])=>makeArea(t,n)),landlordNotes:'',tenantNotes:'',status:'draft'})
 
 export function InspectionModule({properties,ownerId,notify}){
   const [propertyId,setPropertyId]=useState(properties[0]?.id||'');const [type,setType]=useState('ingoing');const property=properties.find(p=>p.id===propertyId)
@@ -37,7 +38,7 @@ export function InspectionModule({properties,ownerId,notify}){
   const updateItem=(areaId,itemId,key,value)=>setForm(v=>({...v,areas:v.areas.map(a=>a.id===areaId?{...a,items:a.items.map(i=>i.id===itemId?{...i,[key]:value}:i)}:a)}))
   const changeAreaType=(areaId,nextType)=>setForm(v=>({...v,areas:v.areas.map(a=>a.id===areaId?{...a,type:nextType,items:AREA_TYPES[nextType].items.map(name=>a.items.find(i=>i.name===name)||makeItem(name))}:a)}))
   const addArea=()=>setForm(v=>({...v,areas:[...v.areas,makeArea('living','New room / area')]}));const removeArea=id=>setForm(v=>({...v,areas:v.areas.filter(a=>a.id!==id)}))
-  const uploadImages=async(areaId,files)=>{if(!files?.length)return;setUploading(areaId);setError('');const additions=[];for(const file of [...files]){if(!file.type.startsWith('image/'))continue;const safe=file.name.replace(/[^a-zA-Z0-9._-]/g,'-');const path=`${ownerId}/${propertyId}/${form.id}/${areaId}/${crypto.randomUUID()}-${safe}`;const {error:e}=await supabase.storage.from('inspection-images').upload(path,file,{contentType:file.type,upsert:false});if(e){setError(e.message);continue}const {data:signed}=await supabase.storage.from('inspection-images').createSignedUrl(path,3600);additions.push({path,url:signed?.signedUrl||'',name:file.name,caption:''})}setForm(v=>({...v,areas:v.areas.map(a=>a.id===areaId?{...a,images:[...a.images,...additions]}:a)}));setUploading('')}
+  const uploadImages=async(areaId,files)=>{if(!files?.length)return;setUploading(areaId);setError('');const additions=[];for(const file of [...files]){if(!file.type.startsWith('image/'))continue;const safe=file.name.replace(/[^a-zA-Z0-9._-]/g,'-');const path=`${ownerId}/${propertyId}/${form.id}/${areaId}/${createId()}-${safe}`;const {error:e}=await supabase.storage.from('inspection-images').upload(path,file,{contentType:file.type,upsert:false});if(e){setError(e.message);continue}const {data:signed}=await supabase.storage.from('inspection-images').createSignedUrl(path,3600);additions.push({path,url:signed?.signedUrl||'',name:file.name,caption:''})}setForm(v=>({...v,areas:v.areas.map(a=>a.id===areaId?{...a,images:[...a.images,...additions]}:a)}));setUploading('')}
   const removeImage=async(areaId,path)=>{await supabase.storage.from('inspection-images').remove([path]);setForm(v=>({...v,areas:v.areas.map(a=>a.id===areaId?{...a,images:a.images.filter(i=>i.path!==path)}:a)}))}
   const save=async()=>{setBusy(true);setError('');const clean={...form,areas:form.areas.map(a=>({...a,images:a.images.map(({path,name,caption})=>({path,name,caption}))}))};const payload={id:form.id,owner_id:ownerId,property_id:propertyId,inspection_type:type,inspection_date:form.date||null,tenant_name:form.tenant||null,status:form.status,report_data:clean,updated_at:new Date().toISOString()};const {error:e}=await supabase.from('inspection_reports').upsert(payload);setBusy(false);if(e)setError(e.message);else notify('Inspection notes and images saved')}
   if(!properties.length)return <section><div className="page-intro"><div><span className="eyebrow">INSPECTIONS</span><h2>Add a property first</h2><p>Your inspection will be customised to the property.</p></div></div></section>
