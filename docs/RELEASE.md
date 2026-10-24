@@ -9,13 +9,15 @@
 - Monthly and supplementary-service branded invoice PDFs, municipal tenant-share import, landlord bank/contact snapshots, configurable send/due/overdue-alert days, optional scheduled email, manual WhatsApp/PDF sharing, partial/full receipt tracking, friendly reminders and reviewed CPA breach drafts.
 - Capacitor Android shell, API 36, native PDF printing and CSV/PDF sharing, account deletion request entry points, public privacy/deletion pages and a manual build workflow.
 
-## Production database approval required
+## Production deployment status — 24 October 2026
 
-Automatic approval review rejected the initial production migration because of new tables and restrictive paid-access policies. No SQL in this branch has been applied to production. Review and approve these exact files:
+The user approved deployment. All three migrations below were applied to MyRental SA project `hneloyinjdhgocezglxl`, the verified owner was assigned administration access, and the `membership` Edge Function is active:
 
 1. `supabase/membership.sql`
 2. `supabase/property-finances.sql`
 3. `supabase/rental-invoices.sql`
+
+The frontend was deployed from merged PR #2 (`fb3b332a2ff91443f16285b8d8903c71d84dc374`). The live app and privacy page returned HTTP 200; the unauthenticated membership endpoint correctly returned HTTP 401. Private financial-document storage was verified. Billing remains disabled in sandbox mode, and payment/email credentials still need configuration. Authenticated production flows and provider sandbox flows are not yet verified.
 
 They preserve existing rental records. Billing defaults to disabled and sandbox enabled. The restrictive access policy passes existing authenticated owners while billing is disabled; owner isolation remains in force. The verified account owner must be inserted into `billing_admins` by server-side administration after approval; no client can self-promote.
 
@@ -48,7 +50,7 @@ npm run android:debug
 
 For signed release builds, configure `MYRENTAL_UPLOAD_STORE_FILE`, `MYRENTAL_UPLOAD_STORE_PASSWORD`, `MYRENTAL_UPLOAD_KEY_ALIAS`, `MYRENTAL_UPLOAD_KEY_PASSWORD` and an increasing `MYRENTAL_VERSION_CODE`, then run `npm run android:bundle`. Never commit the upload key.
 
-The manual GitHub Actions build supports debug APKs and signed release AABs. Configure a `play-release` environment with required review and a `main` branch restriction, and add its four signing secrets (keystore in `MYRENTAL_KEYSTORE_BASE64`; the three password/alias secrets above). Release builds reject branches other than `main`. No workflow publishes to Google Play automatically.
+GitHub Actions automatically builds debug APKs on relevant main-branch changes and supports manual signed release AABs. Configure a `play-release` environment with required review and a `main` branch restriction, and add its four signing secrets (keystore in `MYRENTAL_KEYSTORE_BASE64`; the three password/alias secrets above). Release builds reject branches other than `main`. No workflow publishes to Google Play automatically.
 
 ## Play Console handoff
 
@@ -61,7 +63,7 @@ The manual GitHub Actions build supports debug APKs and signed release AABs. Con
 - Disclose account/contact data, property/tenant information, user-selected photos/documents, financial/payment references and activity diagnostics according to actual collection and service-provider use. Do not mark the app as collecting no personal data.
 - New personal developer accounts may require 12 continuously opted-in testers for 14 days and a production-access application.
 
-This environment has JDK 17 and no Android SDK, so the native APK/AAB has **not** been compiled or device-tested here. Web build and Capacitor synchronisation are separate checks and do not substitute for native compilation or Google review.
+The Android debug APK compiled successfully in GitHub Actions run `40096935404` from main commit `b8b4735cb660732d820a5ab48bdfe784e87220d0`. The `MyRental-SA-debug` artifact is available on that run. Signed release AAB generation, real-device testing and Google review remain outstanding. Play Console sign-in returned a Google “Something went wrong” error in the cloud browser; no app was submitted.
 
 ## Validation
 
