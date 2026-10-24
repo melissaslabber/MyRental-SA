@@ -203,7 +203,7 @@ export function Dashboard({ user, profile, onSignOut, membership, refreshMembers
       {page === 'Documents' && <DocumentsModule properties={portfolio} notify={notify}/>}
       {page === 'Renewals' && <RenewalsModule properties={portfolio} notify={notify} ownerId={profile?.id} profile={profile}/>}
       {page === 'Invoices' && <Invoices ownerId={profile?.id} profile={profile} properties={portfolio} notify={notify}/>}
-      {page === 'Finances' && <PropertyFinance ownerId={profile?.id} properties={portfolio} notify={notify}/>}
+      {page === 'Finances' && <PropertyFinance ownerId={profile?.id} profile={profile} properties={portfolio} notify={notify}/>}
       {page === 'Admin' && (membership?.isAdmin?<Admin/>:<p>Administrator access required.</p>)}
       {page === 'Membership' && membership && <MembershipPanel membership={membership} refresh={refreshMembership}/>}
       {page === 'Learn' && <LearnModule/>}

@@ -1,3 +1,4 @@
+import {QuickRent} from './QuickRent'
 import {createId} from './ids'
 import { useEffect, useMemo, useState, useRef } from 'react'
 import { Download, FileText, Plus, Printer, Upload, X } from 'lucide-react'
@@ -6,7 +7,7 @@ import {annualSummary,categories,categoryLabel,currentFinancialYear,financialYea
 import {saveTextFile,openExternal} from './native'
 const bucket='property-financial-documents'
 const money=value=>`R${Number(value||0).toLocaleString('en-ZA',{minimumFractionDigits:2,maximumFractionDigits:2})}`
-export function PropertyFinance({ownerId,properties,notify}){
+export function PropertyFinance({ownerId,properties,notify,profile}){
  const [year,setYear]=useState(currentFinancialYear),[propertyId,setPropertyId]=useState('all'),[entries,setEntries]=useState([]),[loading,setLoading]=useState(true),[error,setError]=useState(''),[editing,setEditing]=useState(null)
  const requestSequence=useRef(0)
  const period=financialYear(year)
@@ -19,6 +20,7 @@ export function PropertyFinance({ownerId,properties,notify}){
  const openDocument=async attachment=>{const {data,error}=await supabase.storage.from(bucket).createSignedUrl(attachment.path,120);if(error){notify('Could not open this document');return}await openExternal(data.signedUrl)}
  const years=Array.from({length:12},(_,i)=>currentFinancialYear()+1-i)
  return <section className="property-finance"><div className="page-intro no-print"><div><span className="eyebrow">PROPERTY INCOME & EXPENSES</span><h2>Your financial year, organised</h2><p>Record actual payments and receipts, attach supporting documents and prepare a report for your accountant.</p></div><button className="primary" disabled={!properties.length||loading} onClick={()=>setEditing({})}><Plus size={17}/>Add transaction</button></div>
+ <QuickRent ownerId={ownerId} properties={properties} profile={profile} notify={notify} onSaved={load}/>
  <div className="finance-filters no-print"><label>Financial year<select value={year} onChange={e=>setYear(Number(e.target.value))}>{years.map(y=><option key={y} value={y}>{financialYear(y).label}</option>)}</select></label><label>Property<select value={propertyId} onChange={e=>setPropertyId(e.target.value)}><option value="all">All properties</option>{properties.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label><button className="secondary" disabled={loading||!!error} onClick={async()=>{try{await saveTextFile(`MyRental-SA-FY-${year}-${year+1}.csv`,reportCsv(entries,properties,period),'text/csv')}catch{notify('Could not export the report')}}}><Download size={17}/>Export CSV</button><button className="secondary" disabled={loading||!!error} onClick={()=>window.print()}><Printer size={17}/>Print / save PDF</button></div>
  {error&&<div className="data-error no-print" role="alert">{error}<button className="secondary" onClick={load}>Try again</button></div>}
  <div className="annual-report"><div className="annual-report-title"><span className="eyebrow">MYRENTAL SA · ACCOUNTANT REPORT</span><h2>{period.label}</h2><p>{propertyId==='all'?'All properties':properties.find(p=>p.id===propertyId)?.name} · ZAR · actual amounts paid / received</p></div>

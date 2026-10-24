@@ -1,0 +1,3 @@
+export const rentalToday=()=>new Date().toLocaleDateString('en-CA',{timeZone:'Africa/Johannesburg'})
+export function rentalMonths(anchor,count=6){const [y,m]=anchor.split('-').map(Number);return Array.from({length:count},(_,i)=>{const d=new Date(Date.UTC(y,m-1+i,1));return d.toISOString().slice(0,10)})}
+export function rentPosition(invoice){const due=Math.round((invoice?.rental_invoice_lines||[]).filter(l=>l.kind==='rent').reduce((n,l)=>n+Number(l.amount),0)*100),received=Math.round((invoice?.rental_invoice_payments||[]).reduce((n,p)=>n+Number(p.rent_component),0)*100);return {due:due/100,received:received/100,balance:Math.max(0,due-received)/100}}

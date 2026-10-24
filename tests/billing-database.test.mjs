@@ -68,5 +68,22 @@ test('database lifecycle, duplicate delivery, cancellation and member isolation'
  await db.exec(`update billing_settings set enabled=false`)
  assert.deepEqual(await see(alice),['Alice home'])
  assert.deepEqual(await see(bob),[]) // suspension still blocks free access
+ // Quick Rent corrections update both receipt and report, preserving ownership.
+ await db.exec(await readFile(new URL('../supabase/quick-rent.sql',import.meta.url),'utf8'))
+ const nextInvoice=(await db.query('select public.rental_create_invoice($1,$2,$3,$4,$5,$6,$7,$8) id',[alice,prop,'2026-11-01','2026-10-01','2026-11-01',JSON.stringify({landlord_name:'Example'}),JSON.stringify({name:'Tenant'}),JSON.stringify([{kind:'rent',label:'Rent',amount:10000}])])).rows[0].id
+ const quickKey='66666666-6666-4666-8666-666666666666'
+ const quickPayment=(await db.query('select public.rental_record_payment($1,$2,$3,$4,$5,$6,$7) id',[alice,nextInvoice,'2026-10-01',5000,5000,'Quick rent '+quickKey,quickKey])).rows[0].id
+ await db.exec(`set role authenticated;select set_config('request.jwt.claim.sub','${alice}',false)`)
+ await db.query('select public.correct_quick_rent($1,$2,$3)',[quickPayment,'2026-09-30',3000])
+ const corrected=(await db.query('select payment_date::text,amount from rental_invoice_payments where id=$1',[quickPayment])).rows[0]
+ assert.equal(corrected.payment_date,'2026-09-30');assert.equal(corrected.amount,'3000.00')
+ const ledger=(await db.query('select transaction_date::text,amount,notes from property_financial_entries where reference=$1',['Quick rent '+quickKey])).rows[0]
+ assert.equal(ledger.transaction_date,'2026-09-30');assert.equal(ledger.amount,'3000.00');assert.match(ledger.notes,/Quick Rent correction/)
+ await assert.rejects(()=>db.query('select public.correct_quick_rent($1,$2,$3)',[quickPayment,'2026-09-30',11000]))
+ await db.exec(`select set_config('request.jwt.claim.sub','${bob}',false)`)
+ await assert.rejects(()=>db.query('select public.correct_quick_rent($1,$2,$3)',[quickPayment,'2026-09-30',1]))
+ await db.exec('reset role;set role anon')
+ await assert.rejects(()=>db.query('select public.correct_quick_rent($1,$2,$3)',[quickPayment,'2026-09-30',1]))
+ await db.exec('reset role')
  }finally{await db.close()}
 })
