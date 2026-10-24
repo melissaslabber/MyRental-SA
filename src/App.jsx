@@ -9,7 +9,7 @@ import { DocumentsModule } from './Documents'
 import { RenewalsModule } from './Renewals'
 import { LearnModule } from './Learn'
 import { MaintenanceAdvice } from './MaintenanceAdvice'
-import { Admin } from './Admin'
+import { AdminGate } from './AdminGate'
 import {PropertyFinance} from './PropertyFinance'
 import {Invoices} from './Invoices'
 import {isNative} from './native'
@@ -182,8 +182,6 @@ export function Dashboard({ user, profile, onSignOut, membership, refreshMembers
     <aside className="sidebar">
       <Brand />
       <nav aria-label="Main navigation"><span className="nav-label">YOUR WORKSPACE</span>{[...nav.slice(0,4),['Invoices',Receipt],['Maintenance',Hammer],['Inspections',ClipboardCheck],['Documents',FilePenLine],['Renewals',CalendarDays]].map(([name,Icon])=><button aria-current={page===name?'page':undefined} className={page===name?'active':''} onClick={()=>navigate(name)} key={name}><Icon size={19}/><span>{name==='Today'?'Overview':name==='Finances'?'Income & expenses':name}</span></button>)}<span className="nav-label">HELP & GUIDANCE</span>{[['Rent',KeyRound],['Learn',BookOpen],['More',Menu]].map(([name,Icon])=><button aria-current={page===name?'page':undefined} className={page===name?'active':''} onClick={()=>navigate(name)} key={name}><Icon size={19}/><span>{name==='Rent'?'Rental journey':name==='More'?'All tools & settings':name}</span></button>)}</nav>
-      {membership?.isAdmin&&<button className="admin-entry" onClick={()=>navigate('Admin')}><ShieldCheck size={18}/> Admin dashboard</button>}
-      <button className="admin-entry" onClick={()=>navigate('Membership')}><CreditCard size={18}/> Membership</button>
       <div className="legal-mini"><ShieldCheck size={18}/><p><b>Guidance you can trust</b><br/>Important legal matters are clearly flagged for professional review.</p></div>
       <button className="profile" onClick={onSignOut}><span>{(profile?.full_name||'Landlord').split(' ').map(x=>x[0]).slice(0,2).join('').toUpperCase()}</span><div><b>{profile?.full_name?.split(' ')[0]||'Landlord'}</b><small>{demo?'Demo landlord':'Sign out'}</small></div></button>
     </aside>
@@ -204,12 +202,12 @@ export function Dashboard({ user, profile, onSignOut, membership, refreshMembers
       {page === 'Renewals' && <RenewalsModule properties={portfolio} notify={notify} ownerId={profile?.id} profile={profile}/>}
       {page === 'Invoices' && <Invoices ownerId={profile?.id} profile={profile} properties={portfolio} notify={notify}/>}
       {page === 'Finances' && <PropertyFinance ownerId={profile?.id} profile={profile} properties={portfolio} notify={notify}/>}
-      {page === 'Admin' && (membership?.isAdmin?<Admin/>:<p>Administrator access required.</p>)}
+      {page === 'Admin' && (membership?.isAdmin?<AdminGate onClose={()=>navigate('Settings')}/>:<p>Administrator access required.</p>)}
       {page === 'Membership' && membership && <MembershipPanel membership={membership} refresh={refreshMembership}/>}
       {page === 'Learn' && <LearnModule/>}
       {page === 'Legal' && <LegalPage/>}
       {page === 'Professional help' && <ProfessionalHelp profile={profile} user={user} properties={portfolio}/>}
-      {page === 'Settings' && <><SettingsModule user={user} profile={profile} onProfileUpdated={()=>window.location.reload()}/><DeletionRequest/></>}
+      {page === 'Settings' && <><SettingsModule user={user} profile={profile} onProfileUpdated={()=>window.location.reload()}/><DeletionRequest/><section className="settings-admin-group"><details><summary>My membership</summary><MembershipPanel membership={membership} refresh={refreshMembership}/></details>{membership?.isAdmin&&<details><summary>Administration · password protected</summary><p>Members, subscriptions, payments, email setup and agent enquiries.</p><button className="secondary" onClick={()=>navigate('Admin')}><ShieldCheck size={18}/>Open administration</button></details>}</section></>}
     </main>
 
     <nav className="bottom-nav" aria-label="Mobile navigation">{nav.map(([name, Icon]) => <button className={page===name?'active':''} onClick={()=>navigate(name)} aria-current={page===name?'page':undefined} key={name}><Icon size={20}/><span>{name==='Today'?'Overview':name==='Finances'?'Money':name}</span></button>)}</nav>
@@ -284,6 +282,6 @@ function Rent({setPage}) { return <section><div className="page-intro"><div><spa
 
 function Maintenance({notify}) { return <section><div className="page-intro"><div><span className="eyebrow">MAINTENANCE</span><h2>Issues and repairs</h2><p>Keep quotes, responsibility, follow-ups and proof in one timeline.</p></div><button className="primary" onClick={()=>notify('Maintenance form will open here')}><Plus size={18}/> Log issue</button></div><div className="empty-card"><ClipboardCheck/><h3>No open maintenance issues</h3><p>New tenant reports and issues you log will appear here.</p><button onClick={()=>notify('Secure link copied')}>Create tenant reporting link</button></div></section> }
 
-function More({notify,setPage,isAdmin}) { const items=[...(isAdmin?[[ShieldCheck,'Admin','Members, transactions, subscriptions and refunds']]:[]),[Receipt,'Invoices','Monthly invoices, rent received and arrears guidance'],[CreditCard,'Membership','Subscription, payment status and cancellation'],[UserRound,'Applications','Create a property-specific form to email'],[ClipboardCheck,'Inspections','Ingoing, interim and outgoing'],[FilePenLine,'Documents','Leases, addendums and notices'],[CalendarDays,'Renewals','Renewals and term changes'],[WalletCards,'Finances','Income, expenses, bills and annual reports'],[BookOpen,'Learn','Plain-language landlord guidance'],[Building2,'Professional help','Self-manage or appoint an agent'],[ShieldCheck,'Legal','Terms, disclaimer and privacy'],[ShieldCheck,'Settings','Account, password and security']]; return <section><div className="page-intro"><div><span className="eyebrow">MYRENTAL SA</span><h2>Tools and guidance</h2><p>Everything else you need to manage your rental properly.</p></div></div><div className="more-list">{items.map(([I,title,text])=><button key={title} onClick={()=>setPage(title)}><span><I/></span><div><b>{title}</b><small>{text}</small></div><ChevronRight/></button>)}</div><div className="disclaimer"><AlertTriangle/><div><b>Legal guidance, not legal advice</b><p>MyRental SA provides guided workflows and educational information. Serious breaches, evictions and unusual circumstances should be reviewed by a qualified South African property attorney.</p></div></div></section> }
+function More({notify,setPage,isAdmin}) { const items=[[Receipt,'Invoices','Monthly invoices, rent received and arrears guidance'],[UserRound,'Applications','Create a property-specific form to email'],[ClipboardCheck,'Inspections','Ingoing, interim and outgoing'],[FilePenLine,'Documents','Leases, addendums and notices'],[CalendarDays,'Renewals','Renewals and term changes'],[WalletCards,'Finances','Income, expenses, bills and annual reports'],[BookOpen,'Learn','Plain-language landlord guidance'],[Building2,'Professional help','Self-manage or appoint an agent'],[ShieldCheck,'Legal','Terms, disclaimer and privacy'],[ShieldCheck,'Settings','Account, password and security']]; return <section><div className="page-intro"><div><span className="eyebrow">MYRENTAL SA</span><h2>Tools and guidance</h2><p>Everything else you need to manage your rental properly.</p></div></div><div className="more-list">{items.map(([I,title,text])=><button key={title} onClick={()=>setPage(title)}><span><I/></span><div><b>{title}</b><small>{text}</small></div><ChevronRight/></button>)}</div><div className="disclaimer"><AlertTriangle/><div><b>Legal guidance, not legal advice</b><p>MyRental SA provides guided workflows and educational information. Serious breaches, evictions and unusual circumstances should be reviewed by a qualified South African property attorney.</p></div></div></section> }
 
 export default App

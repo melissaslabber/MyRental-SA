@@ -1,8 +1,11 @@
 import { supabase } from './supabase'
+let adminProof=''
+export const lockAdmin=()=>{adminProof=''}
+export async function unlockAdmin(password){const result=await membershipApi('admin_unlock',{password});adminProof=result.proof;return result.expiresAt}
 export async function membershipApi(action='status',body={}){
  const {data:{session}}=await supabase.auth.getSession()
  if(!session)throw new Error('Sign in to continue.')
- const {data,error}=await supabase.functions.invoke('membership',{body:{...body,action},headers:{Authorization:`Bearer ${session.access_token}`}})
+ const {data,error}=await supabase.functions.invoke('membership',{body:{...body,action,...(adminProof?{adminProof}:{})},headers:{Authorization:`Bearer ${session.access_token}`}})
  if(error){let message='Could not reach membership services. Please try again.';try{const result=await error.context.json();message=result.error||message}catch{}throw new Error(message)}
  if(data?.error)throw new Error(data.error)
  return data

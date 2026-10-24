@@ -2,6 +2,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2.116.0'
 import crypto from 'node:crypto'
 import { Buffer } from 'node:buffer'
 import { signature, safeEqual, notificationSignature, notificationParameterString, parameterString } from './payfast.js'
+import {issueAdminProof,validAdminProof} from './admin-proof.js'
 import {submitAgentContact,sendAgentContacts} from './agents.ts'
 import { rentalAction,rentalScheduledJob } from './rentals.ts'
 import { periodEnd, nextBillingDate, publicSubscription, money, validNotification } from './rules.js'
@@ -141,6 +142,16 @@ Deno.serve(async(req:Request)=>{
   }
   if(action==='cancel')return respond(await cancel(user,String(body.reason||'')))
   assert(await isAdmin(user.id),'Administrator access required',403)
+  if(action==='admin_unlock'){
+   assert(typeof body.password==='string'&&body.password.length>0&&body.password.length<1000,'Enter your account password.')
+   const verification=createClient(url,serviceKey,{auth:{persistSession:false,autoRefreshToken:false}})
+   const verified=await verification.auth.signInWithPassword({email:user.email!,password:body.password})
+   assert(!verified.error&&verified.data.user?.id===user.id,'Password could not be verified. Please try again.',401)
+   if(verified.data.session)await verification.auth.signOut({scope:'local'})
+   return respond(issueAdminProof(user.id,serviceKey))
+  }
+  assert(validAdminProof(body.adminProof,user.id,serviceKey),'Admin area locked. Verify your password in Settings.',403)
+
   if(action==='agent_contact_status'){assert(['New','Contacted','Closed'].includes(body.status),'Choose a contact status');await checked(db.from('agent_contact_requests').update({contact_status:body.status}).eq('id',body.id));return respond({ok:true})}
   if(action==='admin')return respond(await adminData(body))
   if(action==='configure'){
