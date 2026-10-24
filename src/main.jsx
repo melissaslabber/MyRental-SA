@@ -1,6 +1,7 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
+import { DialogAccessibility } from './DialogAccessibility'
 import './styles.css'
 import './mobile-fix.css'
 import './features.css'
@@ -16,5 +17,8 @@ import './learn.css'
 import './maintenance-advice.css'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
-  <React.StrictMode><App /></React.StrictMode>
+  <React.StrictMode><DialogAccessibility/><App /></React.StrictMode>
 )
+
+
+import './experience.css'
