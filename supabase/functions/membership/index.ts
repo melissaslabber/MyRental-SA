@@ -2,6 +2,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2.116.0'
 import crypto from 'node:crypto'
 import { Buffer } from 'node:buffer'
 import { signature, safeEqual, notificationSignature, notificationParameterString, parameterString } from './payfast.js'
+import {submitAgentContact,sendAgentContacts} from './agents.ts'
 import { rentalAction,rentalScheduledJob } from './rentals.ts'
 import { periodEnd, nextBillingDate, publicSubscription, money, validNotification } from './rules.js'
 
@@ -75,13 +76,14 @@ async function adminData(body:any){
  const c=await credentials()
  const deletionRequests=await checked(db.from('billing_deletion_requests').select('*').order('created_at',{ascending:false}).limit(100))
  const admins=await checked(db.from('billing_admins').select('user_id'))
- return {deletionRequests,page,hasMore:auth.data.users.length===perPage,summary,users:auth.data.users.map(u=>({id:u.id,email:u.email,name:u.user_metadata?.full_name||'',isAdmin:admins.some(a=>a.user_id===u.id),signedUpAt:u.created_at,lastSignInAt:u.last_sign_in_at,confirmed:!!u.email_confirmed_at,...members.find(m=>m.user_id===u.id),subscriptions:subs.filter(s=>s.user_id===u.id)})),transactions,refunds,emails,settings:{...config,payfastReady:configured(c),emailReady:!!c.RESEND_API_KEY&&!!c.EMAIL_FROM}}
+ const agentRequests=await checked(db.from('agent_contact_requests').select('*').order('created_at',{ascending:false}).limit(100))
+ return {agentRequests,deletionRequests,page,hasMore:auth.data.users.length===perPage,summary,users:auth.data.users.map(u=>({id:u.id,email:u.email,name:u.user_metadata?.full_name||'',isAdmin:admins.some(a=>a.user_id===u.id),signedUpAt:u.created_at,lastSignInAt:u.last_sign_in_at,confirmed:!!u.email_confirmed_at,...members.find(m=>m.user_id===u.id),subscriptions:subs.filter(s=>s.user_id===u.id)})),transactions,refunds,emails,settings:{...config,payfastReady:configured(c),emailReady:!!c.RESEND_API_KEY&&!!c.EMAIL_FROM}}
 }
 async function reminders(req:Request){
  const token=(req.headers.get('authorization')||'').replace(/^Bearer /i,'')
  const job=await checked(db.from('billing_job_keys').select('token').eq('id',true).single())
  assert(token&&safeEqual(token,job.token),'Invalid job credentials',401)
- const c=await credentials(),s=await setting();if(!s.enabled||!c.RESEND_API_KEY||!c.EMAIL_FROM)return {sent:0,configured:false}
+ const c=await credentials(),s=await setting();await sendAgentContacts(db,c);if(!s.enabled||!c.RESEND_API_KEY||!c.EMAIL_FROM)return {sent:0,configured:false}
  await rentalScheduledJob(db,c,APP,async user=>status(user,false))
  await checked(db.rpc('billing_plan_reminders'))
  const queue=await checked(db.rpc('billing_claim_emails'));let sent=0
@@ -115,6 +117,7 @@ Deno.serve(async(req:Request)=>{
   const user=data.user!,body=await req.json(),action=body.action||'status'
   if(action==='status')return respond(await status(user))
   if(['invoice_generate','invoice_payment','invoice_send'].includes(action)){const member=await status(user);assert(member.access,'Membership access required',403);return respond(await rentalAction(db,user,body,await credentials(),APP))}
+  if(action==='agent_contact'){const member=await status(user);assert(member.access,'Membership access required',403);return respond(await submitAgentContact(db,user,body,await credentials()))}
   if(action==='checkout'){
    const s=await setting(),c=await credentials();assert(s.enabled&&configured(c),'Subscriptions are not open yet.',503)
    assert(body.acceptedTerms===true&&body.confirmedAdult===true,'Confirm the subscription terms and that you are at least 18.')
@@ -138,6 +141,7 @@ Deno.serve(async(req:Request)=>{
   }
   if(action==='cancel')return respond(await cancel(user,String(body.reason||'')))
   assert(await isAdmin(user.id),'Administrator access required',403)
+  if(action==='agent_contact_status'){assert(['New','Contacted','Closed'].includes(body.status),'Choose a contact status');await checked(db.from('agent_contact_requests').update({contact_status:body.status}).eq('id',body.id));return respond({ok:true})}
   if(action==='admin')return respond(await adminData(body))
   if(action==='configure'){
    const updates=body.credentials||{};const validNames=['PAYFAST_MERCHANT_ID','PAYFAST_MERCHANT_KEY','PAYFAST_PASSPHRASE','RESEND_API_KEY','EMAIL_FROM']

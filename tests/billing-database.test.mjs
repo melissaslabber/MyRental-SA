@@ -85,5 +85,17 @@ test('database lifecycle, duplicate delivery, cancellation and member isolation'
  await db.exec('reset role;set role anon')
  await assert.rejects(()=>db.query('select public.correct_quick_rent($1,$2,$3)',[quickPayment,'2026-09-30',1]))
  await db.exec('reset role')
+ await db.exec((await readFile(new URL('../supabase/agent-contacts.sql',import.meta.url),'utf8')).split('-- Contact requests')[0])
+ const lead=(await db.query(`insert into agent_contact_requests(owner_id,request_key,first_name,surname,email,phone,property_address,recipient_email,consent_version) values($1,gen_random_uuid(),'Test','Landlord','landlord@example.test','0821234567','Sample home','owner@example.test','agent-contact-v1') returning id`,[alice])).rows[0].id
+ await db.exec(`set role authenticated;select set_config('request.jwt.claim.sub','${alice}',false)`)
+ assert.equal((await db.query('select count(*)::integer n from agent_contact_requests')).rows[0].n,1)
+ await assert.rejects(()=>db.query('select * from claim_agent_contacts(null)'))
+ await assert.rejects(()=>db.query(`update agent_contact_requests set recipient_email='other@example.test'`))
+ await db.exec(`select set_config('request.jwt.claim.sub','${bob}',false)`)
+ assert.equal((await db.query('select count(*)::integer n from agent_contact_requests')).rows[0].n,0)
+ await db.exec('reset role;set role service_role')
+ assert.equal((await db.query('select * from claim_agent_contacts($1)',[lead])).rows.length,1)
+ assert.equal((await db.query('select * from claim_agent_contacts($1)',[lead])).rows.length,0)
+ await db.exec('reset role')
  }finally{await db.close()}
 })

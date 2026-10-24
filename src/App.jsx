@@ -208,7 +208,7 @@ export function Dashboard({ user, profile, onSignOut, membership, refreshMembers
       {page === 'Membership' && membership && <MembershipPanel membership={membership} refresh={refreshMembership}/>}
       {page === 'Learn' && <LearnModule/>}
       {page === 'Legal' && <LegalPage/>}
-      {page === 'Professional help' && <ProfessionalHelp/>}
+      {page === 'Professional help' && <ProfessionalHelp profile={profile} user={user} properties={portfolio}/>}
       {page === 'Settings' && <><SettingsModule user={user} profile={profile} onProfileUpdated={()=>window.location.reload()}/><DeletionRequest/></>}
     </main>
 
