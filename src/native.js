@@ -11,5 +11,5 @@ export async function setupNative(){
  document.documentElement.classList.add('native-app')
  window.print=()=>{RentalPrint.print().catch(()=>alert('Could not open Android printing. Please try again.'))}
  const {App}=await import('@capacitor/app')
- await App.addListener('backButton',()=>{const close=document.querySelector('.editor-head > button,.sheet-head > button');if(close){close.click();return}const overview=document.querySelector('.sidebar nav button');if(overview&&document.title!=='Overview · MyRental SA'){overview.click();return}App.minimizeApp()})
+ await App.addListener('backButton',()=>{const close=document.querySelector('.editor-head > button:not([type="submit"]),.sheet-head > button');if(close){close.click();return}const overview=document.querySelector('.sidebar nav button');if(overview&&document.title!=='Overview · MyRental SA'){overview.click();return}App.minimizeApp()})
 }
