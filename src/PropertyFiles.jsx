@@ -14,8 +14,8 @@ export async function openPropertyFile(path,name,bucketName=bucket){
  return deliverBrowserFile(new File([data],name,{type:data.type||'application/octet-stream'}))
 }
 
-export function PropertyFiles({ownerId,propertyId,section,documents,links=[],onSaved,notify}){
- const [adding,setAdding]=useState(false),[form,setForm]=useState({title:'',document_type:section==='leases'?'Lease agreement':section==='accounts'?'Municipal account':section==='maintenance'?'Quote':section==='inspections'?'Inspection report':'Invoice',linked_record_id:'',document_date:'',term_from:'',term_to:'',monthly_rent:'',landlord_signed:false,tenant_signed:false,signed_on:'',notes:''}),[files,setFiles]=useState([]),[busy,setBusy]=useState(false),[error,setError]=useState('')
+export function PropertyFiles({ownerId,propertyId,section,documents,links=[],onSaved,notify,defaultLinkId=''}){
+ const [adding,setAdding]=useState(false),[form,setForm]=useState({title:'',document_type:section==='leases'?'Lease agreement':section==='accounts'?'Municipal account':section==='maintenance'?'Quote':section==='inspections'?'Inspection report':'Invoice',linked_record_id:defaultLinkId,document_date:'',term_from:'',term_to:'',monthly_rent:'',landlord_signed:false,tenant_signed:false,signed_on:'',notes:''}),[files,setFiles]=useState([]),[busy,setBusy]=useState(false),[error,setError]=useState('')
  const lock=useRef(false),visible=documents.filter(d=>d.section===section)
  const set=(key,value)=>setForm(v=>({...v,[key]:value}))
  const save=async e=>{e.preventDefault();if(lock.current)return;lock.current=true;setBusy(true);setError('');try{

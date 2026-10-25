@@ -28,3 +28,7 @@ import './experience.css'
 import './membership.css'
 
 import './finance.css'
+
+import "./usability.css"
+
+import "./compact.css"

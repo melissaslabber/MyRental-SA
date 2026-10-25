@@ -16,7 +16,7 @@ export function DialogAccessibility(){
     const keydown=event=>{
       if(!active)return
       const list=focusables()
-      if(event.key==='Escape'){event.preventDefault();event.stopPropagation();active.querySelector('.editor-head > button, .sheet-head > button')?.click()}
+      if(event.key==='Escape'){event.preventDefault();event.stopPropagation();active.querySelector('.editor-head > button:not([type="submit"]), .sheet-head > button')?.click()}
       if(event.key==='Tab'&&list.length){const first=list[0],last=list.at(-1);if(event.shiftKey&&(document.activeElement===first||!active.contains(document.activeElement))){event.preventDefault();last.focus()}else if(!event.shiftKey&&(document.activeElement===last||!active.contains(document.activeElement))){event.preventDefault();first.focus()}}
     }
     const observer=new MutationObserver(sync);observer.observe(document.body,{childList:true,subtree:true});sync();document.addEventListener('keydown',keydown,true)
