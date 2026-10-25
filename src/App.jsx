@@ -1,3 +1,6 @@
+import {PasswordRecovery} from './Reliability'
+import {BankImport} from './BankImport'
+import {ScreeningCases} from './ScreeningCases'
 import {PortfolioNextActions} from './PortfolioNextActions'
 import {ReminderCentre} from './ReminderCentre'
 import { useEffect, useMemo, useState } from 'react'
@@ -27,7 +30,7 @@ import {
   Link2, Menu, Plus, Receipt, Search, ShieldCheck, UserRound, WalletCards, X
 } from 'lucide-react'
 
-const pages = ['Today','Properties','Rent','Maintenance','More','Applications','Inspections','Documents','Renewals','Finances','Learn','Legal','Professional help','Settings','Admin','Membership','Invoices','Reminders','Property file']
+const pages = ['Today','Properties','Rent','Maintenance','More','Applications','Inspections','Documents','Renewals','Finances','Learn','Legal','Professional help','Settings','Admin','Membership','Invoices','Reminders','Bank imports','Property file']
 
 const flows = [
   { icon: Search, title: 'Advertise & find a tenant', text: 'Prepare, advertise and screen fairly.' },
@@ -44,6 +47,7 @@ function Brand() {
 
 function App() {
   const [session, setSession] = useState(undefined)
+  const [recovering,setRecovering]=useState(false)
   const [profile, setProfile] = useState(null)
   const [hasProperty, setHasProperty] = useState(false)
   const [legalAccepted, setLegalAccepted] = useState(false)
@@ -58,6 +62,7 @@ function App() {
       if (!data.session) setLoading(false)
     })
     const { data: listener } = supabase.auth.onAuthStateChange((_event, next) => {
+      if(_event==='PASSWORD_RECOVERY')setRecovering(true)
       setSession(next)
       if (!next) { setProfile(null); setHasProperty(false); setLegalAccepted(false); setLoading(false) }
     })
@@ -66,6 +71,7 @@ function App() {
 
   useEffect(() => {
     if (!session?.user) return
+    if(recovering){setLoading(false);return}
     setLoading(true)
     Promise.all([
       supabase.from('profiles').select('*').eq('id', session.user.id).maybeSingle(),
@@ -78,12 +84,13 @@ function App() {
       setLegalAccepted(Boolean(legalResult.data))
       setLoading(false)
     })
-  }, [session])
+  }, [session,recovering])
 
   if (!supabaseConfigured) return <Dashboard demo />
   if(startupError)return <div className="auth-shell"><div className="auth-card loading-card"><Brand/><h2>Let’s try that again</h2><p role="alert">{startupError}</p><button className="auth-submit" onClick={()=>window.location.reload()}>Reload account</button></div></div>
   if (loading || session === undefined) return <LoadingScreen />
   if (!session) return <AuthScreen />
+  if(recovering)return <PasswordRecovery onDone={()=>setRecovering(false)}/>
   if(window.location.pathname==='/request-deletion')return <div className="membership-shell"><DeletionRequest/><button className="secondary" onClick={()=>supabase.auth.signOut()}>Sign out</button></div>
   if (!legalAccepted) return <LegalAcceptance user={session.user} onAccepted={()=>setLegalAccepted(true)}/>
   return <MembershipBoundary user={session.user}>{(membership,refreshMembership)=>
@@ -103,7 +110,7 @@ function AuthScreen() {
     setBusy(false)
   }
   const resetPassword=async()=>{if(!form.email){setMessage('Enter your email address first.');return}setBusy(true);setMessage('');const {error}=await supabase.auth.resetPasswordForEmail(form.email,{redirectTo:window.location.origin});setBusy(false);setMessage(error?error.message:'Password-reset email sent. Check your inbox.')}
-  return <div className="auth-shell"><section className="auth-brand-panel"><Brand/><div><span className="eyebrow">PRIVATE LANDLORDS · SOUTH AFRICA</span><h1>Rent out with confidence.</h1><p>Every property, deadline and document—guided from advertising to deposit reconciliation.</p></div><small>Guidance and organisation for responsible landlords.</small></section><section className="auth-form-panel"><div className="auth-card"><span className="eyebrow">WELCOME TO MYRENTAL SA</span><h2>{mode==='login'?'Sign in to your account':'Create your landlord account'}</h2><p>{mode==='login'?'Continue managing your rentals.':'Create your account, confirm your email, then subscribe securely through PayFast. From R89 per month for 1–2 homes when subscriptions open; larger portfolios have higher tiers.'}</p><form onSubmit={submit}>{mode==='signup'&&!isNative()&&<label>Full name<input required value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="Your full name"/></label>}<label>Email address<input required type="email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})} placeholder="name@example.com"/></label><label>Password<input required minLength="8" type="password" value={form.password} onChange={e=>setForm({...form,password:e.target.value})} placeholder="At least 8 characters"/></label>{mode==='login'&&<button type="button" className="forgot-link" onClick={resetPassword}>Forgot password?</button>}{message&&<div className="auth-message">{message}</div>}<button className="auth-submit" disabled={busy}>{busy?'Please wait…':mode==='login'?'Sign in':'Create account'}</button></form>{isNative()&&<p className="native-signin-note">Sign in with your existing MyRental SA account.</p>}<a className="auth-policy" href="/privacy.html">Privacy policy</a> · <a className="auth-policy" href="/delete-account.html">Account deletion</a><button className="auth-switch" hidden={isNative()} onClick={()=>{setMode(mode==='login'?'signup':'login');setMessage('')}}>{mode==='login'?'New to MyRental SA? Create an account':'Already registered? Sign in'}</button></div></section></div>
+  return <div className="auth-shell"><section className="auth-brand-panel"><Brand/><div><span className="eyebrow">PRIVATE LANDLORDS · SOUTH AFRICA</span><h1>Manage your rentals with confidence.</h1><p>Practical rental management for South African private landlords. Properties, payments and next steps, guided from setup to deposit reconciliation.</p></div><small>Guidance and organisation for responsible landlords.</small></section><section className="auth-form-panel"><div className="auth-card"><span className="eyebrow">WELCOME TO MYRENTAL SA</span><h2>{mode==='login'?'Sign in to your account':'Create your landlord account'}</h2><p>{mode==='login'?'Continue managing your rentals.':'Create your account, confirm your email, then subscribe securely through PayFast. From R89 per month for 1–2 homes when subscriptions open; larger portfolios have higher tiers.'}</p><form onSubmit={submit}>{mode==='signup'&&!isNative()&&<label>Full name<input required value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="Your full name"/></label>}<label>Email address<input required type="email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})} placeholder="name@example.com"/></label><label>Password<input required minLength="8" type="password" value={form.password} onChange={e=>setForm({...form,password:e.target.value})} placeholder="At least 8 characters"/></label>{mode==='login'&&<button type="button" className="forgot-link" onClick={resetPassword}>Forgot password?</button>}{message&&<div className="auth-message">{message}</div>}<button className="auth-submit" disabled={busy}>{busy?'Please wait…':mode==='login'?'Sign in':'Create account'}</button></form>{isNative()&&<p className="native-signin-note">Sign in with your existing MyRental SA account.</p>}<a className="auth-policy" href="/privacy.html">Privacy policy</a> · <a className="auth-policy" href="/delete-account.html">Account deletion</a><button className="auth-switch" hidden={isNative()} onClick={()=>{setMode(mode==='login'?'signup':'login');setMessage('')}}>{mode==='login'?'New to MyRental SA? Create an account':'Already registered? Sign in'}</button></div></section></div>
 }
 
 function Onboarding({user,profile,onComplete}) {
@@ -210,13 +217,14 @@ export function Dashboard({ user, profile, onSignOut, membership, refreshMembers
       {page === 'Rent' && <LearnModule properties={portfolio} notify={notify}/>}
       {page === 'Maintenance' && <><MaintenanceAdvice/><LiveMaintenance notify={notify} ownerId={profile?.id} properties={portfolio}/></>}
       {page === 'More' && <More notify={notify} setPage={navigate} isAdmin={membership?.isAdmin}/>}
-      {page === 'Applications' && <ApplicationModule properties={portfolio} notify={notify}/>}
+      {page === 'Applications' && <><ScreeningCases properties={portfolio} ownerId={profile?.id} notify={notify}/><details className="property-record"><summary>Create or share a blank application form</summary><ApplicationModule properties={portfolio} notify={notify}/></details></>}
       {page === 'Inspections' && <InspectionModule properties={portfolio} ownerId={profile?.id} notify={notify}/>}
       {page === 'Documents' && <DocumentsModule properties={portfolio} notify={notify}/>}
       {page === 'Renewals' && <RenewalsModule properties={portfolio} notify={notify} ownerId={profile?.id} profile={profile}/>}
       {page === 'Reminders' && <ReminderCentre properties={portfolio} ownerId={profile?.id} notify={notify} onOpen={reminder=>{if(reminder.page==='Renewals'){localStorage.setItem('myrental_renewal_property',reminder.propertyId);navigate('Renewals')}else if(['Inspections','Maintenance','Invoices','Finances'].includes(reminder.page)){localStorage.setItem('myrental_file_tab',reminder.page==='Finances'?'Accounts':reminder.page);openProperty(portfolio.find(p=>p.id===reminder.propertyId))}else navigate(reminder.page)}}/>}
       {page === 'Invoices' && <Invoices ownerId={profile?.id} profile={profile} properties={portfolio} notify={notify}/>}
-      {page === 'Finances' && <PropertyFinance ownerId={profile?.id} profile={profile} properties={portfolio} notify={notify}/>}
+      {page === 'Bank imports' && <BankImport ownerId={profile?.id} properties={portfolio} notify={notify}/>}
+      {page === 'Finances' && <><button className="secondary no-print" onClick={()=>navigate('Bank imports')}>Import / reconcile bank statement</button><PropertyFinance ownerId={profile?.id} profile={profile} properties={portfolio} notify={notify}/></>}
       {page === 'Admin' && (membership?.isAdmin?<AdminGate onClose={()=>navigate('Settings')}/>:<p>Administrator access required.</p>)}
       {page === 'Membership' && membership && <MembershipPanel membership={membership} refresh={refreshMembership}/>}
       {page === 'Learn' && <LearnModule properties={portfolio} notify={notify}/>}
@@ -328,6 +336,6 @@ function Rent({setPage}) { return <section><div className="page-intro"><div><spa
 
 function Maintenance({notify}) { return <section><div className="page-intro"><div><span className="eyebrow">MAINTENANCE</span><h2>Issues and repairs</h2><p>Keep quotes, responsibility, follow-ups and proof in one timeline.</p></div><button className="primary" onClick={()=>notify('Maintenance form will open here')}><Plus size={18}/> Log issue</button></div><div className="empty-card"><ClipboardCheck/><h3>No open maintenance issues</h3><p>New tenant reports and issues you log will appear here.</p><button onClick={()=>notify('Secure link copied')}>Create tenant reporting link</button></div></section> }
 
-function More({notify,setPage,isAdmin}) { const items=[[Bell,'Reminders','Deadlines, inspections, rent and follow-ups'],[Receipt,'Invoices','Monthly invoices, rent received and arrears guidance'],[UserRound,'Applications','Create a property-specific form to email'],[ClipboardCheck,'Inspections','Ingoing, interim and outgoing'],[FilePenLine,'Documents','Leases, addendums and notices'],[CalendarDays,'Renewals','Renewals and term changes'],[WalletCards,'Finances','Income, expenses, bills and annual reports'],[BookOpen,'Learn','Plain-language landlord guidance'],[Building2,'Professional help','Self-manage or appoint an agent'],[ShieldCheck,'Legal','Terms, disclaimer and privacy'],[ShieldCheck,'Settings','Account, password and security']]; return <section><div className="page-intro"><div><span className="eyebrow">MYRENTAL SA</span><h2>Tools and guidance</h2><p>Everything else you need to manage your rental properly.</p></div></div><div className="more-list">{items.map(([I,title,text])=><button key={title} onClick={()=>setPage(title)}><span><I/></span><div><b>{title}</b><small>{text}</small></div><ChevronRight/></button>)}</div><div className="disclaimer"><AlertTriangle/><div><b>Legal guidance, not legal advice</b><p>MyRental SA provides guided workflows and educational information. Serious breaches, evictions and unusual circumstances should be reviewed by a qualified South African property attorney.</p></div></div></section> }
+function More({notify,setPage,isAdmin}) { const items=[[WalletCards,'Bank imports','Import CSV transactions and confirm matches'],[Bell,'Reminders','Deadlines, inspections, rent and follow-ups'],[Receipt,'Invoices','Monthly invoices, rent received and arrears guidance'],[UserRound,'Applications','Create a property-specific form to email'],[ClipboardCheck,'Inspections','Ingoing, interim and outgoing'],[FilePenLine,'Documents','Leases, addendums and notices'],[CalendarDays,'Renewals','Renewals and term changes'],[WalletCards,'Finances','Income, expenses, bills and annual reports'],[BookOpen,'Learn','Plain-language landlord guidance'],[Building2,'Professional help','Self-manage or appoint an agent'],[ShieldCheck,'Legal','Terms, disclaimer and privacy'],[ShieldCheck,'Settings','Account, password and security']]; return <section><div className="page-intro"><div><span className="eyebrow">MYRENTAL SA</span><h2>Tools and guidance</h2><p>Everything else you need to manage your rental properly.</p></div></div><div className="more-list">{items.map(([I,title,text])=><button key={title} onClick={()=>setPage(title)}><span><I/></span><div><b>{title}</b><small>{text}</small></div><ChevronRight/></button>)}</div><div className="disclaimer"><AlertTriangle/><div><b>Legal guidance, not legal advice</b><p>MyRental SA provides guided workflows and educational information. Serious breaches, evictions and unusual circumstances should be reviewed by a qualified South African property attorney.</p></div></div></section> }
 
 export default App

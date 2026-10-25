@@ -1,3 +1,4 @@
+import {AppBoundary,ConnectionNotice} from './Reliability'
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
@@ -19,7 +20,7 @@ import './learn.css'
 import './maintenance-advice.css'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
-  <React.StrictMode><DialogAccessibility/><App /></React.StrictMode>
+  <React.StrictMode><AppBoundary><ConnectionNotice/><DialogAccessibility/><App /></AppBoundary></React.StrictMode>
 )
 
 

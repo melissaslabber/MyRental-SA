@@ -30,3 +30,10 @@ test('next action prioritises real arrears, then incomplete setup; archived prop
  invoice.rental_invoice_payments.push({amount:100});assert.equal(nextPropertyAction(property,{invoices:[invoice]},'2026-10-25').label,'Upload signed lease')
  assert.equal(nextPropertyAction({...property,rawStatus:'archived'}).label,'View archived property')
 })
+
+test('a simply uploaded signed lease completes only its linked tenancy without inventing signature dates',()=>{
+ const uploaded={section:'leases',document_type:'Signed lease',linked_record_id:'l',landlord_signed:false,tenant_signed:false,signed_on:null}
+ assert(propertyJourney(property,{documents:[uploaded]}).find(s=>s.id==='signed').done)
+ assert(!propertyJourney(property,{documents:[{...uploaded,linked_record_id:'previous-tenancy'}]}).find(s=>s.id==='signed').done)
+ assert(!propertyJourney(property,{documents:[{...uploaded,document_type:'Lease agreement'}]}).find(s=>s.id==='signed').done)
+})
