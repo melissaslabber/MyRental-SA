@@ -6,7 +6,7 @@ export async function shareRentalPdf(invoice,noticeText=null,mode='download'){co
  return savePdfFile(bytes,name,mode)
 }
 export async function savePdfFile(bytes,name,mode='download'){
- if(isNative()){const {Filesystem,Directory}=await import('@capacitor/filesystem');const {Share}=await import('@capacitor/share');let binary='';for(const b of bytes)binary+=String.fromCharCode(b);const result=await Filesystem.writeFile({path:name,data:btoa(binary),directory:Directory.Cache});await Share.share({title:name,url:result.uri,dialogTitle:'Share rental document'});return}
+ if(isNative()){const {Filesystem,Directory}=await import('@capacitor/filesystem');const {Share}=await import('@capacitor/share');let binary='';for(const b of bytes)binary+=String.fromCharCode(b);const result=await Filesystem.writeFile({path:name,data:btoa(binary),directory:Directory.Cache});try{await Share.share({title:name,url:result.uri,dialogTitle:'Share rental document'});return 'shared'}catch(error){if(error?.name==='AbortError'||/cancel/i.test(error?.message||''))return 'cancelled';throw error}}
  return deliverBrowserFile(new File([bytes],name,{type:'application/pdf'}),{mode})
 }
 export async function shareTenantText(invoice,text,channel){if(channel==='email'){window.location.href=`mailto:${encodeURIComponent(invoice.tenant_details?.email||'')}?subject=${encodeURIComponent('MyRental SA · '+invoice.invoice_number)}&body=${encodeURIComponent(text)}`;return}if(channel==='whatsapp'){window.open('https://wa.me/?text='+encodeURIComponent(text),'_blank','noopener,noreferrer');return}await navigator.clipboard.writeText(text)}

@@ -1,4 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import * as PDFLib from 'pdf-lib'
+import {reportPdf,reportElementText} from './report-pdf'
+import {savePdfFile} from './rental-sharing'
+import { useEffect, useMemo, useState, useRef } from 'react'
 import { AlertTriangle, FileDown, FilePenLine, Info, RotateCcw } from 'lucide-react'
 
 const TYPES=[
@@ -23,16 +26,20 @@ export function DocumentsModule({properties,notify}){
   const [type,setType]=useState('application');const [propertyId,setPropertyId]=useState(properties[0]?.id||'');const property=properties.find(p=>p.id===propertyId)
   const key=`myrental_document_${type}_${propertyId}`
   const load=()=>{try{return {...defaultDraft(type,property),...JSON.parse(localStorage.getItem(key)||'{}')}}catch{return defaultDraft(type,property)}}
-  const [draft,setDraft]=useState(load)
-  useEffect(()=>setDraft(load()),[type,propertyId])
-  useEffect(()=>{if(propertyId)localStorage.setItem(key,JSON.stringify(draft))},[draft,key,propertyId])
+  const [draftState,setDraftState]=useState(()=>({key,value:load()}))
+  const draft=draftState.key===key?draftState.value:load()
+  const setDraft=next=>setDraftState(v=>({key,value:typeof next==='function'?next(v.key===key?v.value:load()):next}))
+  const previewRef=useRef(null),[pdfBusy,setPdfBusy]=useState(false),[pdfError,setPdfError]=useState('')
+  const exportPdf=async mode=>{setPdfBusy(true);setPdfError('');try{const title=TYPES.find(x=>x[0]===type)[1];const bytes=await reportPdf(reportElementText(previewRef.current),PDFLib,title.toUpperCase());const result=await savePdfFile(bytes,`MyRental-SA-${type}-draft.pdf`,mode);if(result!=='cancelled')notify(result==='shared'?'Document PDF shared':'Document PDF downloaded')}catch(e){setPdfError(e.message||'Could not prepare document PDF.')}finally{setPdfBusy(false)}}
+
+  useEffect(()=>{if(propertyId&&draftState.key===key)localStorage.setItem(key,JSON.stringify(draftState.value))},[draftState,key,propertyId])
   const set=(name,value)=>setDraft(v=>({...v,[name]:value}))
   const reset=()=>{const fresh=defaultDraft(type,property);setDraft(fresh);localStorage.removeItem(key);notify('Draft reset')}
   if(!properties.length)return <section><div className="page-intro"><div><span className="eyebrow">DOCUMENTS</span><h2>Add a property first</h2><p>Documents are customised to the selected property.</p></div></div></section>
   return <section className="documents-page"><div className="page-intro no-print"><div><span className="eyebrow">LANDLORD DOCUMENT CENTRE</span><h2>Documents and notices</h2><p>Create an editable starting draft, then have legally important documents reviewed before use.</p></div></div>
     <div className="document-types no-print">{TYPES.map(([id,title,text])=><button className={type===id?'active':''} key={id} onClick={()=>setType(id)}><FilePenLine/><span><b>{title}</b><small>{text}</small></span></button>)}</div>
     <article className={`document-risk no-print ${['demand','breach','lease'].includes(type)?'high':''}`}><AlertTriangle/><div><b>{['demand','breach'].includes(type)?'Check before sending':'Template—not legal advice'}</b><p>{['demand','breach'].includes(type)?'Do not assume a standard remedy period or delivery method applies. Check the signed lease, the CPA position, the nature of the breach and current law with a qualified South African property attorney. Never use self-help measures such as changing locks or cutting services.':'This document is an administrative starting point. It is not a substitute for an attorney-drafted agreement suited to the property and parties.'}</p></div></article>
-    <div className="document-workspace"><aside className="document-fields no-print"><label>Property<select value={propertyId} onChange={e=>setPropertyId(e.target.value)}>{properties.map(p=><option value={p.id} key={p.id}>{p.name}</option>)}</select></label><DocFields type={type} draft={draft} set={set}/><div className="document-actions"><button onClick={reset}><RotateCcw/>Reset</button><button className="primary" onClick={()=>window.print()}><FileDown/>Save / print PDF</button></div><small className="autosave">Draft saved automatically on this device.</small></aside><DocumentPreview type={type} draft={draft} property={property}/></div>
+    <div className="document-workspace"><aside className="document-fields no-print"><label>Property<select value={propertyId} onChange={e=>setPropertyId(e.target.value)}>{properties.map(p=><option value={p.id} key={p.id}>{p.name}</option>)}</select></label><DocFields type={type} draft={draft} set={set}/><div className="document-actions"><button onClick={reset}><RotateCcw/>Reset</button><button className="primary" disabled={pdfBusy} onClick={()=>exportPdf('download')}><FileDown/>{pdfBusy?'Preparing…':'Download PDF'}</button><button disabled={pdfBusy} onClick={()=>exportPdf('share')}>Share PDF</button></div>{pdfError&&<p role="alert">{pdfError}</p>}<small className="autosave">Draft saved automatically on this device.</small></aside><div ref={previewRef}><DocumentPreview type={type} draft={draft} property={property}/></div></div>
   </section>
 }
 

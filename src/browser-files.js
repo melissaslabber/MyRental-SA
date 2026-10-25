@@ -6,7 +6,7 @@ export function downloadFile(file){
 }
 export async function deliverBrowserFile(file,{mode='download',nav=globalThis.navigator,download=downloadFile}={}){
  if(mode==='share'){
-  try{if(nav?.share&&nav.canShare?.({files:[file]})){await nav.share({files:[file],title:file.name});return 'shared'}}
+  try{if(nav?.share&&(!nav.canShare||nav.canShare({files:[file]}))){await nav.share({files:[file],title:file.name});return 'shared'}}
   catch(error){if(error?.name==='AbortError')return 'cancelled'}
  }
  download(file);return 'downloaded'

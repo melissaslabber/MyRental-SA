@@ -4,3 +4,4 @@
 @media(max-width:1000px){.document-types{grid-template-columns:1fr 1fr}.document-workspace{grid-template-columns:1fr}.document-fields{position:static;max-height:none}}
 @media(max-width:620px){.documents-page{padding:0 .85rem 6rem}.document-types{grid-template-columns:1fr}.document-preview{padding:1.2rem;border-radius:14px}.document-preview header{gap:.5rem;flex-direction:column}.document-preview h1{font-size:1.65rem}.doc-signatures{grid-template-columns:1fr}}
 @media print{body{background:#fff}.sidebar,main>header,.bottom-nav,.fab,.no-print,.toast{display:none!important}.app-shell,main{display:block!important}.documents-page{padding:0}.document-workspace{display:block}.document-preview{border:0;box-shadow:none;padding:0;max-width:none}.document-preview footer{break-inside:avoid}}
+.document-workspace>div{min-width:0}.document-actions{flex-wrap:wrap}

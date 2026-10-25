@@ -1,0 +1,16 @@
+import {leaseExpiryAlerts} from './lease-alerts.js'
+import {invoiceTotals} from '../shared/rental-documents.js'
+export const saDate=now=>new Intl.DateTimeFormat('en-CA',{timeZone:'Africa/Johannesburg',year:'numeric',month:'2-digit',day:'2-digit'}).format(now)
+export function buildReminders(properties,{records=[],maintenance=[],invoices=[],inspections=[],documents=[]},now=new Date()){
+ const today=saDate(now),end=new Date(`${today}T00:00:00Z`);end.setUTCDate(end.getUTCDate()+30);const soon=end.toISOString().slice(0,10),active=new Set(properties.filter(p=>(p.rawStatus||p.status)!=='archived').map(p=>p.id)),names=Object.fromEntries(properties.map(p=>[p.id,p.name])),result=[]
+ const add=(kind,id,propertyId,date,title,detail,page,recordId)=>{if(!active.has(propertyId))return;result.push({id:`${kind}:${id}`,kind,propertyId,date,title,detail,page,recordId,overdue:!!date&&date<today})}
+ for(const alert of leaseExpiryAlerts(properties.filter(p=>active.has(p.id)),now))add('Lease expiry',alert.leaseId,alert.propertyId,alert.endDate,`${names[alert.propertyId]}: lease ${alert.daysLeft<0?'expired':'expiring'}`,`${alert.tenantName} · confirm renewal or move-out`,'Renewals')
+ for(const record of records)if(record.due_date&&record.due_date<=soon&&!['Completed','Declined','Refunded','Reconciled','Received'].includes(record.status))add('Scheduled',record.id,record.property_id,record.due_date,record.title,record.notes||record.status,record.record_type==='inspection'?'Inspections':record.record_type==='finance'?'Finances':record.record_type==='renewal'?'Renewals':record.record_type==='application'?'Applications':'Documents',record.id)
+ for(const item of maintenance)if(item.status!=='Completed')add('Maintenance',item.id,item.property_id,item.last_followed_up||item.created_at?.slice(0,10),item.issue,`${item.urgent?'Urgent · ':''}${item.status}${item.last_followed_up?' · last followed up '+item.last_followed_up:''}`,'Maintenance')
+ for(const invoice of invoices)if(invoice.due_date<=soon&&invoiceTotals(invoice).balance>0)add('Rent / invoice',invoice.id,invoice.property_id,invoice.due_date,`${invoice.invoice_number}: payment outstanding`,`R${invoiceTotals(invoice).balance.toFixed(2)} outstanding · ${invoice.tenant_details?.name||names[invoice.property_id]}`,'Invoices')
+ for(const inspection of inspections){if(inspection.status!=='completed'&&inspection.inspection_date&&inspection.inspection_date<=soon)add('Inspection',inspection.id,inspection.property_id,inspection.inspection_date,`${inspection.inspection_type} inspection`,`${names[inspection.property_id]} · finish inspection report`,'Inspections');if(inspection.status==='completed'){
+  const signed=documents.some(d=>d.section==='inspections'&&d.linked_record_id===inspection.id&&d.landlord_signed&&d.tenant_signed),receipt=inspection.report_data?.receipt||{}
+  if(!signed||!receipt.landlordDate||!receipt.tenantDate)add('Report follow-up',inspection.id,inspection.property_id,null,`${inspection.inspection_type} report: copies and signatures`,[!signed?'Signed copy still needed':'',!receipt.landlordDate?'Landlord receipt unrecorded':'',!receipt.tenantDate?'Tenant receipt unrecorded':''].filter(Boolean).join(' · '),'Inspections')
+ }}
+ return result.sort((a,b)=>Number(b.overdue)-Number(a.overdue)||(a.date||'9999').localeCompare(b.date||'9999')||a.id.localeCompare(b.id))
+}
