@@ -234,7 +234,7 @@ function Today({setPage,setQuick,properties,tasks,openProperty,addProperty,loadi
   const incomplete=properties.find(p=>!p.activeLease)
   return <div className="page-grid">
     <section className="content-col">
-      <div className="hero"><div><span className="eyebrow">A LITTLE LESS ADMIN. A LOT MORE CLARITY.</span><h2>Your rentals, under control.</h2><p>Keep track of your properties, people and next steps.</p></div><button onClick={()=>setQuick(true)}><Plus size={18}/> Quick actions</button></div>
+      <div className="hero overview-welcome"><div><h2>Your rentals, under control.</h2><p>Properties, payments and next steps in one place.</p></div><button onClick={()=>setQuick(true)}><Plus size={18}/> Quick actions</button></div>
       <div className="overview-stats" aria-label="Portfolio summary">
         <button onClick={()=>setPage('Properties')}><Building2 size={20}/><span><small>Properties</small><strong>{loading||dataError?'—':properties.length}</strong></span><ChevronRight size={16}/></button>
         <button onClick={()=>setPage('Properties')}><KeyRound size={20}/><span><small>Occupied</small><strong>{loading||dataError?'—':occupied}<em> / {properties.length}</em></strong></span><ChevronRight size={16}/></button>
