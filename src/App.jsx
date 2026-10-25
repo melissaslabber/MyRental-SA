@@ -73,19 +73,24 @@ function App() {
   useEffect(() => {
     if (!session?.user) return
     if(recovering){setLoading(false);return}
+    let active=true
     setLoading(true)
     Promise.all([
       supabase.from('profiles').select('*').eq('id', session.user.id).maybeSingle(),
       supabase.from('properties').select('id').eq('owner_id', session.user.id).limit(1),
       supabase.from('legal_acceptances').select('id').eq('user_id',session.user.id).eq('document_version',LEGAL_VERSION).maybeSingle()
     ]).then(([profileResult, propertyResult,legalResult]) => {
+      if(!active)return
       if(profileResult.error||propertyResult.error||legalResult.error){setStartupError('We couldn’t load your account. Please try again.');setLoading(false);return}
       setProfile(profileResult.data)
       setHasProperty(Boolean(propertyResult.data?.length))
       setLegalAccepted(Boolean(legalResult.data))
       setLoading(false)
-    })
-  }, [session,recovering])
+    }).catch(()=>{if(active){setStartupError('We couldn’t load your account. Please try again.');setLoading(false)}})
+    return ()=>{active=false}
+  // Refocusing after the file picker can emit SIGNED_IN with a fresh session object.
+  // Only changing accounts should reload and unmount the dashboard.
+  }, [session?.user?.id,recovering])
 
   if (!supabaseConfigured) return <Dashboard demo />
   if(startupError)return <div className="auth-shell"><div className="auth-card loading-card"><Brand/><h2>Let’s try that again</h2><p role="alert">{startupError}</p><button className="auth-submit" onClick={()=>window.location.reload()}>Reload account</button></div></div>
