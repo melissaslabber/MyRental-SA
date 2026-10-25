@@ -1,0 +1,1 @@
+alter policy financial_files_owner_insert on storage.objects with check(bucket_id='property-financial-documents' and (storage.foldername(objects.name))[1]=auth.uid()::text and (select rental_private.has_access()) and exists(select 1 from public.properties p where p.id::text=(storage.foldername(objects.name))[2] and p.owner_id=auth.uid()));
