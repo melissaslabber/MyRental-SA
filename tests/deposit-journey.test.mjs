@@ -37,3 +37,24 @@ test('a simply uploaded signed lease completes only its linked tenancy without i
  assert(!propertyJourney(property,{documents:[{...uploaded,linked_record_id:'previous-tenancy'}]}).find(s=>s.id==='signed').done)
  assert(!propertyJourney(property,{documents:[{...uploaded,document_type:'Lease agreement'}]}).find(s=>s.id==='signed').done)
 })
+
+test('uploaded inspection advances setup and suppresses its unfinished ingoing draft',()=>{
+ const documents=[{section:'leases',document_type:'Signed lease',linked_record_id:'l'},{section:'inspections',document_type:'Inspection report',linked_record_id:'l'}]
+ const inspections=[{id:'r',inspection_type:'ingoing',status:'draft',inspection_date:'2026-10-01',tenant_name:'Example Tenant'}]
+ assert(propertyJourney(property,{documents,inspections}).find(s=>s.id==='inspection').done)
+ assert.equal(nextPropertyAction(property,{documents,inspections},'2026-10-25').label,'Create first invoice')
+ inspections.push({id:'later',inspection_type:'interim',status:'draft',inspection_date:'2026-10-20'})
+ assert.equal(nextPropertyAction(property,{documents,inspections},'2026-10-25').label,'Complete inspection')
+})
+test('legacy property uploads count for current tenancy but old or other tenancy files do not',()=>{
+ const doc={section:'inspections',document_type:'Inspection report',created_at:'2026-10-25T08:00:00Z'}
+ const done=d=>propertyJourney(property,{documents:[d]}).find(s=>s.id==='inspection').done
+ assert(done(doc));assert(!done({...doc,created_at:'2025-10-25T08:00:00Z'}));assert(!done({...doc,linked_record_id:'old-lease'}))
+ assert(!done({...doc,document_type:'Photo'}))
+})
+test('upload linked to an inspection completes the step without requiring the draft to be completed',()=>{
+ const inspections=[{id:'r',inspection_type:'ingoing',status:'draft',tenant_name:'Example Tenant',inspection_date:'2026-10-01'}]
+ const documents=[{section:'inspections',document_type:'Inspection report',linked_record_id:'r'}]
+ assert(propertyJourney(property,{documents,inspections}).find(s=>s.id==='inspection').done)
+ assert.notEqual(nextPropertyAction(property,{documents,inspections},'2026-10-25').label,'Complete inspection')
+})
