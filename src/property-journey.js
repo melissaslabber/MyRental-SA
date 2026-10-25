@@ -41,5 +41,5 @@ export function nextPropertyAction(property,data={},today=new Date().toLocaleDat
  if(unfinished)return {label:'Complete inspection',tab:'Inspections',detail:`${unfinished.inspection_type} · ${unfinished.inspection_date}`}
  if(lease.status==='active'&&lease.end_date&&lease.end_date<=today)return {label:'Review lease expiry',tab:'Leases',detail:`Lease ended ${lease.end_date}. Confirm the next steps.`}
  const step=propertyJourney(property,data).find(s=>!s.done)
- return step?{label:step.action,tab:step.tab,detail:`Next setup step: ${step.label.toLowerCase()}.`}:{label:'View property activity',tab:'Timeline',detail:'Setup is complete. Keep payments and records up to date.'}
+ return step?{label:step.action,tab:step.tab,detail:`Next setup step: ${step.label.toLowerCase()}.`}:{label:'Log a payment',tab:'Payments',setupComplete:true,detail:'Setup complete. Log a payment or maintenance issue.'}
 }
