@@ -1,6 +1,6 @@
 export function propertyJourney(property,{inspections=[],invoices=[],documents=[]}={}){
  const lease=property.activeLease||{},hasTenant=Boolean(lease.id&&lease.tenant_name?.trim())
- const signed=documents.some(d=>d.section==='leases'&&d.landlord_signed&&d.tenant_signed&&(d.linked_record_id===lease.id||(d.term_from&&d.term_from===lease.start_date&&d.term_to===lease.end_date)))
+ const signed=documents.some(d=>d.section==='leases'&&(d.document_type==='Signed lease'||d.landlord_signed&&d.tenant_signed)&&(d.linked_record_id===lease.id||(d.term_from&&d.term_from===lease.start_date&&d.term_to===lease.end_date)))
  const earliest=lease.start_date?new Date(`${lease.start_date}T12:00:00Z`):null
  if(earliest)earliest.setUTCDate(earliest.getUTCDate()-14)
  const ingoing=inspections.some(r=>r.inspection_type==='ingoing'&&r.status==='completed'&&(r.report_data?.leaseId===lease.id||(!r.report_data?.leaseId&&r.tenant_name===lease.tenant_name&&r.inspection_date&&(!earliest||r.inspection_date>=earliest.toISOString().slice(0,10))&&(!lease.end_date||r.inspection_date<=lease.end_date))))
