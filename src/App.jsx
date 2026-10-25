@@ -1,6 +1,7 @@
+import {PropertyListingLink} from './PropertyListingLink'
 import {PasswordRecovery} from './Reliability'
 import {BankImport} from './BankImport'
-import {ScreeningCases} from './ScreeningCases'
+import {CreditCheckLink} from './CreditCheckLink'
 import {PortfolioNextActions} from './PortfolioNextActions'
 import {ReminderCentre} from './ReminderCentre'
 import { useEffect, useMemo, useState } from 'react'
@@ -214,10 +215,10 @@ export function Dashboard({ user, profile, onSignOut, membership, refreshMembers
       {page === 'Today'  && <Today ownerId={profile?.id} setPage={navigate} setQuick={setQuick} properties={portfolio.filter(p=>p.rawStatus!=='archived')} tasks={allAttention} openProperty={openProperty} addProperty={()=>setAddingProperty(true)} loading={dataLoading} dataError={dataError} attentionError={attentionError} notify={notify}/>}
       {page === 'Property file' && (dataLoading?<p>Loading property file…</p>:<PropertyFile key={filePropertyId} property={portfolio.find(p=>p.id===filePropertyId)} ownerId={profile?.id} profile={profile} user={user} notify={notify} onBack={()=>navigate('Today')} onEditLease={lease=>setFileLeaseEditing(lease||true)} onManageProperty={()=>setManagingFile(true)}/>)}
       {page === 'Properties' && <Properties openProperty={openProperty} onTenantNotice={id=>{localStorage.setItem('myrental_renewal_property',id);localStorage.setItem('myrental_tenant_notice',id);navigate('Renewals')}} notify={notify} properties={portfolio} ownerId={profile?.id} onRefresh={()=>setRefreshKey(x=>x+1)}/>}
-      {page === 'Rent' && <LearnModule properties={portfolio} notify={notify}/>}
+      {page === 'Rent' && <><PropertyListingLink notify={notify}/><LearnModule properties={portfolio} notify={notify}/></>}
       {page === 'Maintenance' && <><MaintenanceAdvice/><LiveMaintenance notify={notify} ownerId={profile?.id} properties={portfolio}/></>}
       {page === 'More' && <More notify={notify} setPage={navigate} isAdmin={membership?.isAdmin}/>}
-      {page === 'Applications' && <><ScreeningCases properties={portfolio} ownerId={profile?.id} notify={notify}/><details className="property-record"><summary>Create or share a blank application form</summary><ApplicationModule properties={portfolio} notify={notify}/></details></>}
+      {page === 'Applications' && <><CreditCheckLink notify={notify}/><ApplicationModule properties={portfolio} notify={notify}/></>}
       {page === 'Inspections' && <InspectionModule properties={portfolio} ownerId={profile?.id} notify={notify}/>}
       {page === 'Documents' && <DocumentsModule properties={portfolio} notify={notify}/>}
       {page === 'Renewals' && <RenewalsModule properties={portfolio} notify={notify} ownerId={profile?.id} profile={profile}/>}

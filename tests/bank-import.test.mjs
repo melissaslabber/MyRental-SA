@@ -1,7 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {csvRows,guessColumns,bankDate,bankCents,normaliseTransactions,transactionFingerprint,suggestedInvoices} from '../src/bank-import.js'
-import {validateScreening,screeningChecks} from '../src/screening.js'
 test('bank CSV handles preambles, BOM, quotes and semicolon debit/credit exports',()=>{
  const csv='\uFEFFAccount statement\r\nDate;Description;Debit;Credit;Balance\r\n25/10/2026;"Rent; Cottage";;1 000,00;3 000,00\r\n24/10/2026;"Plumber ""repair""";250,00;;2 000,00'
  const parsed=csvRows(csv,';'),map={...guessColumns(parsed.headers),decimal:','},rows=normaliseTransactions(parsed.rows,map,'2026-10-25')
@@ -23,9 +22,4 @@ test('invoice suggestions use outstanding balances and never suggest debits or p
  const invoice={id:'i',invoice_number:'MR-202610-TEST',rental_invoice_lines:[{amount:1000}],rental_invoice_payments:[{amount:200}]},tx={description:'MR 202610 TEST rent',amount:800}
  assert.equal(suggestedInvoices(tx,[invoice])[0].invoice.id,'i');assert.equal(suggestedInvoices({...tx,amount:-800},[invoice]).length,0)
  invoice.rental_invoice_payments.push({amount:800});assert.equal(suggestedInvoices(tx,[invoice]).length,0)
-})
-test('screening progression requires consent and a completed manual review',()=>{
- const form={applicant_name:'Example',property_id:'p',stage:'awaiting_consent'};assert(validateScreening(form))
- form.stage='checks_requested';assert.throws(()=>validateScreening(form),/consent/);form.consent_date='2026-10-25';form.consent_reference='Signed application';assert(validateScreening(form))
- form.stage='reviewed';assert.throws(()=>validateScreening(form),/report/);form.provider_reference='Provider report reference';assert.throws(()=>validateScreening(form),/checklist/);form.checks=Object.fromEntries(screeningChecks.map(([key])=>[key,true]));assert(validateScreening(form))
 })
