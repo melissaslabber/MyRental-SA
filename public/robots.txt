@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /landlord-documents/
+Disallow: /admin
+Disallow: /request-deletion
+Sitemap: https://myrental-sa.vercel.app/sitemap.xml
