@@ -23,3 +23,10 @@ A prelaunch catalogue, not a working ecommerce checkout. Prices are planned laun
 - Configure a real analytics property and consent/privacy handling before adding its identifier. Record product views and checkout starts separately from verified purchases; no analytics property or ad account is configured here.
 - Set up a Google Search campaign only after checkout and purchase measurement pass testing. No campaign or ad spend has been started.
 - Compare actual purchase conversion value with acquisition cost before increasing spend. No ranking or traffic-volume claim is made.
+
+
+## Payment integration 26 October 2026
+
+A separate document-shop Edge Function is deployed. Merchant details are held in encrypted Vault secrets, read through a service-role-only RPC. Passphrase is never returned to browsers. Public checkout uses server-authoritative product prices, one-off payment fields and a random access token whose hash is stored with the order. Webhook verification checks the signature, merchant, order, exact gross amount, COMPLETE state and PayFast server validation. Download access requires a paid order, matching unexpired token and the purchased file checksum. No return URL marks an order paid. Download access lasts 30 days, and email delivery is not included.
+
+Activation was declined by the approval system with no stated reason. All eight packages remain sale_enabled=false; the checkout page has a disabled payment button and states that activation is pending. No production payment was submitted. Live endpoint confirmed that purchases remain blocked. All 62 automated tests passed. A real payment and complete provider callback/download test remain unverified.

@@ -1,0 +1,3 @@
+export function cents(value){if(!/^\d+\.\d{2}$/.test(String(value)))throw new Error('Invalid amount');const [whole,fraction]=String(value).split('.');const amount=Number(whole)*100+Number(fraction);if(!Number.isSafeInteger(amount))throw new Error('Invalid amount');return amount}
+export function validPayment(f,order,merchant){try{return f.merchant_id===merchant&&f.payment_status==='COMPLETE'&&f.m_payment_id===order.id&&/^\d+$/.test(f.pf_payment_id)&&cents(f.amount_gross)===order.amount_cents}catch{return false}}
+export function canDownload(order,hash,now=Date.now()){return !!order&&order.status==='paid'&&order.access_hash===hash&&Date.parse(order.access_expires_at)>now}

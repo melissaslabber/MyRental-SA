@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/landlord-documents/checkout",
+      "destination": "/landlord-documents/checkout/index.html"
+    },
+    {
       "source": "/landlord-documents",
       "destination": "/landlord-documents/index.html"
     },
