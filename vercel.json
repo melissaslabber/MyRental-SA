@@ -5,40 +5,57 @@
       "destination": "/landlord-documents/index.html"
     },
     {
-      "source": "/landlord-documents/ingoing-inspection-template-south-africa",
-      "destination": "/landlord-documents/ingoing-inspection-template-south-africa/index.html"
+      "source": "/landlord-documents/residential-lease-agreement-south-africa",
+      "destination": "/landlord-documents/residential-lease-agreement-south-africa/index.html"
+    },
+    {
+      "source": "/landlord-documents/non-cpa-residential-lease-agreement-south-africa",
+      "destination": "/landlord-documents/non-cpa-residential-lease-agreement-south-africa/index.html"
     },
     {
       "source": "/landlord-documents/inspection-template-pack-south-africa",
       "destination": "/landlord-documents/inspection-template-pack-south-africa/index.html"
     },
     {
-      "source": "/landlord-documents/landlord-document-pack-south-africa",
-      "destination": "/landlord-documents/landlord-document-pack-south-africa/index.html"
+      "source": "/landlord-documents/tenant-breach-notice-south-africa",
+      "destination": "/landlord-documents/tenant-breach-notice-south-africa/index.html"
+    },
+    {
+      "source": "/landlord-documents/lease-cancellation-letter-south-africa",
+      "destination": "/landlord-documents/lease-cancellation-letter-south-africa/index.html"
     },
     {
       "source": "/landlord-documents/lease-renewal-addendum-south-africa",
       "destination": "/landlord-documents/lease-renewal-addendum-south-africa/index.html"
     },
     {
-      "source": "/landlord-documents/outgoing-inspection-template-south-africa",
-      "destination": "/landlord-documents/outgoing-inspection-template-south-africa/index.html"
-    },
-    {
       "source": "/landlord-documents/rental-application-form-south-africa",
       "destination": "/landlord-documents/rental-application-form-south-africa/index.html"
     },
     {
-      "source": "/landlord-documents/residential-lease-agreement-south-africa",
-      "destination": "/landlord-documents/residential-lease-agreement-south-africa/index.html"
-    },
-    {
-      "source": "/landlord-documents/tenant-breach-notice-south-africa",
-      "destination": "/landlord-documents/tenant-breach-notice-south-africa/index.html"
+      "source": "/landlord-documents/juristic-entity-rental-application-form-south-africa",
+      "destination": "/landlord-documents/juristic-entity-rental-application-form-south-africa/index.html"
     },
     {
       "source": "/(.*)",
       "destination": "/index.html"
+    }
+  ],
+  "redirects": [
+    {
+      "source": "/landlord-documents/ingoing-inspection-template-south-africa/:path*",
+      "destination": "/landlord-documents/inspection-template-pack-south-africa/",
+      "permanent": true
+    },
+    {
+      "source": "/landlord-documents/outgoing-inspection-template-south-africa/:path*",
+      "destination": "/landlord-documents/inspection-template-pack-south-africa/",
+      "permanent": true
+    },
+    {
+      "source": "/landlord-documents/landlord-document-pack-south-africa/:path*",
+      "destination": "/landlord-documents/",
+      "permanent": true
     }
   ]
 }

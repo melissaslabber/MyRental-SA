@@ -4,7 +4,7 @@ Public catalogue: `/landlord-documents/`. Generated static HTML contains all cop
 
 ## Current release
 
-A prelaunch catalogue, not a working ecommerce checkout. Prices are planned launch prices. No products are claimed to be attorney-reviewed, no sample downloads are advertised, and no payments or personal data are collected. No purchase conversion is emitted without an actual verified sale. The inspection pair is R79; individual incoming/outgoing records are R49 each. The complete pack is R299.
+A prelaunch catalogue, not a working ecommerce checkout. Prices are planned launch prices. No products are claimed to be attorney-reviewed, no sample downloads are advertised, and no payments or personal data are collected. No purchase conversion is emitted without an actual verified sale. CPA and non-CPA leases are R500 per version; the inspection pair is R349; breach and cancellation letters are R390 each; renewal addendum is R299; individual and juristic application forms are R199 per version. The earlier starter pack is withdrawn.
 
 ## Sales launch dependencies
 
